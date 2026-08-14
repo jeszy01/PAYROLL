@@ -1,0 +1,9 @@
+import { apiClient } from './apiClient';
+import type { Employee } from '../types';
+
+export const employeeService = {
+  list: () => apiClient.get<Employee[]>('/employees'),
+  create: (payload: Omit<Employee, 'id'>) => apiClient.post<Employee>('/employees', payload),
+  update: (id: string, payload: Partial<Omit<Employee, 'id'>>) =>
+    apiClient.patch<Employee>(`/employees/${id}`, payload),
+};
