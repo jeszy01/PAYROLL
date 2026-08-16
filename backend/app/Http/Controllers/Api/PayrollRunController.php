@@ -8,14 +8,19 @@ use App\Models\AttendanceSummary;
 use App\Models\Employee;
 use App\Models\PayrollRun;
 use App\Models\Payslip;
+use App\Services\PayslipMailer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class PayrollRunController extends Controller
 {
+    public function __construct(private PayslipMailer $mailer)
+    {
+    }
+
     public function index(Request $request)
     {
-        $query = PayrollRun::orderByDesc('pay_period_start');
+        $query = PayrollRun::orderByDesc('created_at');
 
         if (! $request->boolean('includeArchived')) {
             $query->whereNull('archived_at');
@@ -53,12 +58,41 @@ class PayrollRunController extends Controller
      * Compute payslips for every active employee based on the attendance
      * summaries entered for this run, then move the run to "for_approval".
      *
-     * NOTE ON RATES: SSS / PhilHealth / Pag-IBIG / withholding tax below
-     * use simplified flat percentages for demonstration purposes. They
-     * are NOT the official, bracketed government contribution tables
-     * (those change periodically and have income brackets/caps). Swap
-     * the constants in this method for the actual current tables before
-     * using this for real payroll.
+     * Line items and flow match the client's actual payslip format:
+     *   Basic Salary + Tax Refund + SL-Cash Conversion + Overtime Pay
+     *     - Absent/Undertime/Lates = Total Salary
+     *   Total Salary - SSS - PhilHealth - HDMF = Taxable Salary
+     *   Taxable Salary - Withholding Tax - Cash Advance - SSS Loan
+     *     - HDMF Loan - Company Loan = Net Salary
+     *   Net Salary + Transportation Allowance + Rice Subsidy Allowance
+     *     = Total Remittance
+     *
+     * Per client feedback (client interview, semi-monthly payroll):
+     * - Cutoffs run 26th-9th (paid the 15th) and 10th-25th (paid the
+     *   30th/31st) — cutoff lengths differ, so "working days" is derived
+     *   from the actual pay_period_start/end of each run (weekdays only)
+     *   rather than a fixed constant.
+     * - A 15-minute grace period applies before lateness is deducted.
+     * - Employees may have recurring per-cutoff amounts (company loan,
+     *   SSS loan, HDMF loan, transportation/rice subsidy allowances) —
+     *   see the corresponding columns on the Employee model. Cash
+     *   Advance, Tax Refund, and SL-Cash Conversion are one-off instead,
+     *   entered per run on the attendance summary.
+     *
+     * NOT IMPLEMENTED: the client's slip itemizes overtime into Reg OT /
+     * Sun OT / Hol-ND OT, each carrying a different legally-mandated
+     * premium rate. Those rates weren't confirmed as of this build, so
+     * overtime stays a single entered value at a flat 1.25x — same
+     * "simplified, not the official figures" caveat as the statutory
+     * rates below.
+     *
+     * NOTE ON STATUTORY RATES: SSS / PhilHealth / HDMF / withholding tax
+     * below still use simplified flat percentages for demonstration.
+     * They are NOT the official, bracketed government contribution
+     * tables (those change periodically and have income brackets/caps).
+     * Swap the constants in this method for the actual current tables
+     * before using this for real payroll — the client has these on file
+     * but hadn't confirmed the exact bracket figures as of this build.
      */
     public function compute(PayrollRun $payrollRun)
     {
@@ -69,14 +103,20 @@ class PayrollRunController extends Controller
         }
 
         // Simplified statutory rates — see NOTE above.
-        $sssRate = 0.045;        // 4.5% of gross, employee share (simplified)
-        $philhealthRate = 0.025; // 2.5% of gross, employee share (simplified)
-        $pagibigRate = 0.02;     // 2% of gross, capped
+        $sssRate = 0.045;        // 4.5% of Total Salary, employee share (simplified)
+        $philhealthRate = 0.025; // 2.5% of Total Salary, employee share (simplified)
+        $pagibigRate = 0.02;     // 2% of Total Salary, capped (this is what the client calls "HDMF")
         $pagibigCap = 100.0;
         $taxableThreshold = 20833.0; // simplified TRAIN-law-style monthly exemption
         $taxRate = 0.10;
 
-        $workingDaysPerPeriod = 11; // simplified semi-monthly working-day baseline
+        // Per client: 15-minute grace period before lateness is deducted.
+        $lateGraceMinutes = 15;
+
+        // Working days for this specific cutoff, derived from its actual
+        // dates (weekdays only) — cutoffs are not a fixed length (26-9 vs
+        // 10-25), so this can't be a hardcoded constant.
+        $workingDaysPerPeriod = $payrollRun->workingDays();
 
         $summaries = AttendanceSummary::where('payroll_run_id', $payrollRun->id)->get();
 
@@ -86,13 +126,13 @@ class PayrollRunController extends Controller
             ], 422);
         }
 
-        DB::transaction(function () use ($payrollRun, $summaries, $workingDaysPerPeriod, $sssRate, $philhealthRate, $pagibigRate, $pagibigCap, $taxableThreshold, $taxRate) {
+        DB::transaction(function () use ($payrollRun, $summaries, $workingDaysPerPeriod, $lateGraceMinutes, $sssRate, $philhealthRate, $pagibigRate, $pagibigCap, $taxableThreshold, $taxRate) {
             // Clear any previously computed payslips for this run (recompute).
             Payslip::where('payroll_run_id', $payrollRun->id)->delete();
 
-            $grossTotal = 0;
+            $totalSalaryTotal = 0;
+            $totalRemittanceTotal = 0;
             $deductionsTotal = 0;
-            $netTotal = 0;
 
             foreach ($summaries as $summary) {
                 $employee = Employee::find($summary->employee_id);
@@ -105,19 +145,34 @@ class PayrollRunController extends Controller
 
                 $basicPay = round($dailyRate * (float) $summary->days_present, 2);
                 $overtimePay = round($hourlyRate * 1.25 * (float) $summary->overtime_hours, 2);
-                $lateDeduction = round(($hourlyRate / 60) * $summary->late_minutes, 2);
+                $taxRefund = round((float) $summary->tax_refund, 2);
+                $slCashConversion = round((float) $summary->sl_cash_conversion, 2);
+
+                $lateMinutesBeyondGrace = max(0, (int) $summary->late_minutes - $lateGraceMinutes);
+                $lateDeduction = round(($hourlyRate / 60) * $lateMinutesBeyondGrace, 2);
                 $absenceDeduction = round($dailyRate * (float) $summary->unpaid_absence_days, 2);
+                $lateUndertimeAbsenceDeduction = round($lateDeduction + $absenceDeduction, 2);
 
-                $grossPay = max(0, $basicPay + $overtimePay - $lateDeduction - $absenceDeduction);
+                $totalSalary = max(0, $basicPay + $taxRefund + $slCashConversion + $overtimePay - $lateUndertimeAbsenceDeduction);
 
-                $sss = round($grossPay * $sssRate, 2);
-                $philhealth = round($grossPay * $philhealthRate, 2);
-                $pagibig = min(round($grossPay * $pagibigRate, 2), $pagibigCap);
-                $taxableIncome = max(0, $grossPay - $taxableThreshold);
-                $tax = round($taxableIncome * $taxRate, 2);
+                $sss = round($totalSalary * $sssRate, 2);
+                $philhealth = round($totalSalary * $philhealthRate, 2);
+                $hdmf = min(round($totalSalary * $pagibigRate, 2), $pagibigCap);
+                $taxableSalary = max(0, round($totalSalary - $sss - $philhealth - $hdmf, 2));
 
-                $totalDeductions = round($sss + $philhealth + $pagibig + $tax, 2);
-                $netPay = round($grossPay - $totalDeductions, 2);
+                $taxableIncomeOverThreshold = max(0, $taxableSalary - $taxableThreshold);
+                $withholdingTax = round($taxableIncomeOverThreshold * $taxRate, 2);
+
+                $cashAdvance = round((float) $summary->cash_advance, 2);
+                $sssLoan = round((float) $employee->sss_loan_per_cutoff, 2);
+                $hdmfLoan = round((float) $employee->hdmf_loan_per_cutoff, 2);
+                $companyLoan = round((float) $employee->loan_deduction_per_cutoff, 2);
+
+                $netSalary = max(0, round($taxableSalary - $withholdingTax - $cashAdvance - $sssLoan - $hdmfLoan - $companyLoan, 2));
+
+                $transportationAllowance = round((float) $employee->transportation_allowance, 2);
+                $riceSubsidyAllowance = round((float) $employee->rice_subsidy_allowance, 2);
+                $totalRemittance = round($netSalary + $transportationAllowance + $riceSubsidyAllowance, 2);
 
                 Payslip::create([
                     'payroll_run_id' => $payrollRun->id,
@@ -125,30 +180,38 @@ class PayrollRunController extends Controller
                     'employee_name' => "{$employee->first_name} {$employee->last_name}",
                     'department' => $employee->department,
                     'basic_pay' => $basicPay,
+                    'tax_refund' => $taxRefund,
+                    'sl_cash_conversion' => $slCashConversion,
                     'overtime_pay' => $overtimePay,
-                    'allowances' => 0,
-                    'gross_pay' => $grossPay,
+                    'late_undertime_absence_deduction' => $lateUndertimeAbsenceDeduction,
+                    'total_salary' => $totalSalary,
                     'sss_contribution' => $sss,
                     'philhealth_contribution' => $philhealth,
-                    'pagibig_contribution' => $pagibig,
-                    'withholding_tax' => $tax,
-                    'other_deductions' => $lateDeduction + $absenceDeduction,
-                    'total_deductions' => $totalDeductions,
-                    'net_pay' => $netPay,
+                    'pagibig_contribution' => $hdmf,
+                    'taxable_salary' => $taxableSalary,
+                    'withholding_tax' => $withholdingTax,
+                    'cash_advance' => $cashAdvance,
+                    'sss_loan' => $sssLoan,
+                    'hdmf_loan' => $hdmfLoan,
+                    'company_loan_deduction' => $companyLoan,
+                    'net_salary' => $netSalary,
+                    'transportation_allowance' => $transportationAllowance,
+                    'rice_subsidy_allowance' => $riceSubsidyAllowance,
+                    'total_remittance' => $totalRemittance,
                     'status' => 'computed',
                 ]);
 
-                $grossTotal += $grossPay;
-                $deductionsTotal += $totalDeductions;
-                $netTotal += $netPay;
+                $totalSalaryTotal += $totalSalary;
+                $deductionsTotal += round($totalSalary - $netSalary, 2);
+                $totalRemittanceTotal += $totalRemittance;
             }
 
             $payrollRun->update([
                 'status' => 'for_approval',
                 'total_employees' => $summaries->count(),
-                'gross_total' => round($grossTotal, 2),
+                'gross_total' => round($totalSalaryTotal, 2),
                 'deductions_total' => round($deductionsTotal, 2),
-                'net_total' => round($netTotal, 2),
+                'net_total' => round($totalRemittanceTotal, 2),
             ]);
         });
 
@@ -162,15 +225,38 @@ class PayrollRunController extends Controller
         return new PayrollRunResource($payrollRun);
     }
 
-    public function release(PayrollRun $payrollRun)
+    /**
+     * Releasing a run is also the point payslips get emailed out
+     * automatically — no manual "Send" click needed for the normal case.
+     * Only active employees with an email on file are emailed; the
+     * per-payslip Send button in PayslipController still works for
+     * resends (e.g. a bounced address, or a correction after release).
+     */
+    public function release(Request $request, PayrollRun $payrollRun)
     {
         $payrollRun->update(['status' => 'released']);
 
+        $employees = Employee::whereIn('id', $payrollRun->payslips->pluck('employee_id'))
+            ->get()
+            ->keyBy('id');
+
+        $emailed = 0;
+        $failed = 0;
+
         foreach ($payrollRun->payslips as $payslip) {
             $payslip->update(['status' => 'released']);
+
+            $employee = $employees->get($payslip->employee_id);
+            if ($employee && $employee->employment_status === 'active' && $employee->email) {
+                $result = $this->mailer->sendEmail($payslip, $employee);
+                $result['status'] === 'sent' ? $emailed++ : $failed++;
+            }
         }
 
-        return new PayrollRunResource($payrollRun);
+        return response()->json(array_merge(
+            (new PayrollRunResource($payrollRun->fresh()))->toArray($request),
+            ['emailSummary' => ['emailed' => $emailed, 'failed' => $failed]]
+        ));
     }
 
     /**

@@ -8,7 +8,10 @@ export const payrollService = {
   createRun: (payload: Pick<PayrollRun, 'payPeriodStart' | 'payPeriodEnd' | 'payDate' | 'cutoffLabel'>) =>
     apiClient.post<PayrollRun>('/payroll/runs', payload),
   approveRun: (id: string) => apiClient.post<PayrollRun>(`/payroll/runs/${id}/approve`),
-  releaseRun: (id: string) => apiClient.post<PayrollRun>(`/payroll/runs/${id}/release`),
+  releaseRun: (id: string) =>
+    apiClient.post<PayrollRun & { emailSummary: { emailed: number; failed: number } }>(
+      `/payroll/runs/${id}/release`
+    ),
   archiveRun: (id: string) => apiClient.post<PayrollRun>(`/payroll/runs/${id}/archive`),
   unarchiveRun: (id: string) => apiClient.post<PayrollRun>(`/payroll/runs/${id}/unarchive`),
   deleteRun: (id: string) => apiClient.delete<void>(`/payroll/runs/${id}`),
@@ -17,7 +20,16 @@ export const payrollService = {
     apiClient.get<AttendanceSummary[]>(`/payroll/runs/${payrollRunId}/attendance`),
   saveAttendance: (
     payrollRunId: string,
-    payload: { employeeId: string; daysPresent: number; lateMinutes: number; overtimeHours: number; unpaidAbsenceDays: number }
+    payload: {
+      employeeId: string;
+      daysPresent: number;
+      lateMinutes: number;
+      overtimeHours: number;
+      unpaidAbsenceDays: number;
+      cashAdvance: number;
+      taxRefund: number;
+      slCashConversion: number;
+    }
   ) => apiClient.post<AttendanceSummary>(`/payroll/runs/${payrollRunId}/attendance`, payload),
   computeRun: (payrollRunId: string) => apiClient.post<PayrollRun>(`/payroll/runs/${payrollRunId}/compute`),
 

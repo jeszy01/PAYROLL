@@ -34,6 +34,7 @@ Route::get('/employees', [EmployeeController::class, 'index']);
 Route::post('/employees', [EmployeeController::class, 'store']);
 Route::get('/employees/{employee}', [EmployeeController::class, 'show']);
 Route::patch('/employees/{employee}', [EmployeeController::class, 'update']);
+Route::delete('/employees/{employee}', [EmployeeController::class, 'destroy']);
 
 
 // ---------- Payroll Management ----------

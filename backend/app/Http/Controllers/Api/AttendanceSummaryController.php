@@ -13,8 +13,13 @@ class AttendanceSummaryController extends Controller
 {
     /**
      * List attendance summaries entered for a payroll run. Includes one
-     * row per active employee — employees without an entry yet default
-     * to zero, so the frontend can render an editable row for everyone.
+     * row per active employee.
+     *
+     * There's no real Time & Attendance system feeding this yet, so an
+     * employee without an entry defaults to full attendance for the
+     * cutoff (present every working day, no lates/overtime/absences)
+     * rather than zero — HR only needs to edit the exceptions, not type
+     * in every number for every employee.
      */
     public function indexForRun(PayrollRun $payrollRun)
     {
@@ -22,10 +27,12 @@ class AttendanceSummaryController extends Controller
             ->get()
             ->keyBy('employee_id');
 
+        $fullAttendanceDays = $payrollRun->workingDays();
+
         $rows = Employee::where('employment_status', 'active')
             ->orderBy('last_name')
             ->get()
-            ->map(function (Employee $employee) use ($payrollRun, $existing) {
+            ->map(function (Employee $employee) use ($payrollRun, $existing, $fullAttendanceDays) {
                 if ($existing->has($employee->id)) {
                     return $existing->get($employee->id);
                 }
@@ -34,10 +41,13 @@ class AttendanceSummaryController extends Controller
                     'payroll_run_id' => $payrollRun->id,
                     'employee_id' => $employee->id,
                     'employee_name' => "{$employee->first_name} {$employee->last_name}",
-                    'days_present' => 0,
+                    'days_present' => $fullAttendanceDays,
                     'late_minutes' => 0,
                     'overtime_hours' => 0,
                     'unpaid_absence_days' => 0,
+                    'cash_advance' => 0,
+                    'tax_refund' => 0,
+                    'sl_cash_conversion' => 0,
                 ]);
             });
 
@@ -55,6 +65,9 @@ class AttendanceSummaryController extends Controller
             'lateMinutes' => ['required', 'integer', 'min:0'],
             'overtimeHours' => ['required', 'numeric', 'min:0'],
             'unpaidAbsenceDays' => ['required', 'numeric', 'min:0', 'max:31'],
+            'cashAdvance' => ['nullable', 'numeric', 'min:0'],
+            'taxRefund' => ['nullable', 'numeric', 'min:0'],
+            'slCashConversion' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $employee = Employee::findOrFail($data['employeeId']);
@@ -67,6 +80,9 @@ class AttendanceSummaryController extends Controller
                 'late_minutes' => $data['lateMinutes'],
                 'overtime_hours' => $data['overtimeHours'],
                 'unpaid_absence_days' => $data['unpaidAbsenceDays'],
+                'cash_advance' => $data['cashAdvance'] ?? 0,
+                'tax_refund' => $data['taxRefund'] ?? 0,
+                'sl_cash_conversion' => $data['slCashConversion'] ?? 0,
             ]
         );
 

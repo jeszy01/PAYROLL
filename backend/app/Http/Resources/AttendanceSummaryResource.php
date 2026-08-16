@@ -18,6 +18,9 @@ class AttendanceSummaryResource extends JsonResource
             'lateMinutes' => (int) $this->late_minutes,
             'overtimeHours' => (float) $this->overtime_hours,
             'unpaidAbsenceDays' => (float) $this->unpaid_absence_days,
+            'cashAdvance' => (float) $this->cash_advance,
+            'taxRefund' => (float) $this->tax_refund,
+            'slCashConversion' => (float) $this->sl_cash_conversion,
         ];
     }
 }

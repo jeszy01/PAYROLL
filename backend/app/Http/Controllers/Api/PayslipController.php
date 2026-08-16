@@ -4,16 +4,19 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PayslipResource;
-use App\Mail\PayslipMail;
 use App\Models\Employee;
 use App\Models\PayrollRun;
 use App\Models\Payslip;
+use App\Services\PayslipMailer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 class PayslipController extends Controller
 {
+    public function __construct(private PayslipMailer $mailer)
+    {
+    }
+
     public function indexForRun(PayrollRun $payrollRun)
     {
         return PayslipResource::collection(
@@ -71,23 +74,12 @@ class PayslipController extends Controller
 
     private function deliver(Payslip $payslip, string $channel): array
     {
-        $employee = Employee::find($payslip->employee_id);
+        // withTrashed(): a payslip's employee may have since been removed
+        // (soft-deleted) — resending an old payslip should still work.
+        $employee = Employee::withTrashed()->find($payslip->employee_id);
 
         if ($channel === 'email') {
-            if (! $employee || ! $employee->email) {
-                return ['payslipId' => $payslip->id, 'status' => 'failed', 'message' => 'No email on file for this employee.'];
-            }
-
-            try {
-                Mail::to($employee->email)->send(new PayslipMail($payslip));
-                $payslip->update(['email_sent_at' => now()]);
-
-                return ['payslipId' => $payslip->id, 'status' => 'sent', 'message' => "Emailed to {$employee->email}."];
-            } catch (\Throwable $e) {
-                Log::error('Payslip email failed', ['payslip_id' => $payslip->id, 'error' => $e->getMessage()]);
-
-                return ['payslipId' => $payslip->id, 'status' => 'failed', 'message' => 'Email could not be sent.'];
-            }
+            return $this->mailer->sendEmail($payslip, $employee);
         }
 
         // SMS: no gateway configured in this build. Record the attempt

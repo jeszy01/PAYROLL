@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -31,5 +32,27 @@ class PayrollRun extends Model
     public function payslips(): HasMany
     {
         return $this->hasMany(Payslip::class);
+    }
+
+    /**
+     * Weekday count for this run's actual pay period (cutoffs are 26-9 vs
+     * 10-25, so this isn't a fixed constant). Used both to compute payroll
+     * and as the "full attendance" default when a run has no real Time &
+     * Attendance system feeding it — see AttendanceSummaryController.
+     */
+    public function workingDays(): int
+    {
+        $count = 0;
+        $cursor = Carbon::parse($this->pay_period_start);
+        $end = Carbon::parse($this->pay_period_end);
+
+        while ($cursor->lte($end)) {
+            if (! $cursor->isWeekend()) {
+                $count++;
+            }
+            $cursor->addDay();
+        }
+
+        return max(1, $count); // guard against division by zero on malformed dates
     }
 }

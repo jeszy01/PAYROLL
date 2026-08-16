@@ -1,6 +1,6 @@
 import { X, Printer } from 'lucide-react';
 import type { Payslip, PayrollRun } from '../../types';
-import { formatCurrency, formatDate } from '../../utils/format';
+import { formatDate } from '../../utils/format';
 import { amountToWords } from '../../utils/amountToWords';
 
 interface PayslipDocumentProps {
@@ -9,16 +9,130 @@ interface PayslipDocumentProps {
   onClose: () => void;
 }
 
-const COMPANY_NAME = 'Payroll & Benefits Management System';
-const COMPANY_ADDRESS = 'E-Commerce Marketplace Operations';
+const COMPANY_NAME = 'Archon Nell Incorporated';
+
+/** Plain comma-formatted number, no currency symbol — matches the reference slip. */
+function n(value: number): string {
+  return value.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/** A line item: dash when zero, parentheses when a deduction, plain number otherwise. */
+function LineValue({ value, deduction }: { value: number; deduction?: boolean }) {
+  if (value === 0) return <span>-</span>;
+  return <span>{deduction ? `(${n(value)})` : n(value)}</span>;
+}
+
+function Row({ label, value, deduction, indent }: { label: string; value: number; deduction?: boolean; indent?: boolean }) {
+  return (
+    <div className={`flex justify-between py-0.5 text-[13px] ${indent ? 'pl-6' : ''}`}>
+      <span className="text-ink-900">{label}</span>
+      <span className="text-ink-900">
+        <LineValue value={value} deduction={deduction} />
+      </span>
+    </div>
+  );
+}
+
+function Subtotal({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex justify-between py-1 text-[13px] font-semibold text-ink-900">
+      <span>{label}</span>
+      <span>{n(value)}</span>
+    </div>
+  );
+}
+
+function SlipBody({ payslip, run }: { payslip: Payslip; run: PayrollRun }) {
+  return (
+    <div className="border border-ink-900 px-5 py-4 text-ink-900">
+      <p className="text-center text-base font-bold">Pay Slip</p>
+      <p className="mt-1 text-[13px]">{COMPANY_NAME}</p>
+      <p className="text-[13px]">
+        For the Period {formatDate(run.payPeriodStart)} to {formatDate(run.payPeriodEnd)}
+      </p>
+
+      <div className="mt-2 flex items-start justify-between text-[13px]">
+        <span>
+          Name: <span className="ml-1">{payslip.employeeName}</span>
+        </span>
+        <span>Employee No.: {payslip.employeeId.slice(0, 8).toUpperCase()}</span>
+      </div>
+
+      <div className="mt-3 border-t border-ink-900 pt-2">
+        <Row label="Basic Salary" value={payslip.basicPay} />
+        <p className="pt-1 text-[13px]">Add(Deduct):</p>
+        <Row indent label="Tax Refund" value={payslip.taxRefund} />
+        <Row indent label="SL - Cash Conversion" value={payslip.slCashConversion} />
+        <Row indent label="Overtime (Reg OT/Sun OT/Hol-ND OT)" value={payslip.overtimePay} />
+        <Row indent label="(Absent/Undertime/Lates)" value={payslip.lateUndertimeAbsenceDeduction} deduction />
+        <div className="mt-1 border-t border-ink-900 pt-1">
+          <Subtotal label="Total Salary" value={payslip.totalSalary} />
+        </div>
+
+        <p className="pt-2 text-[13px]">Less:</p>
+        <Row indent label="SSS" value={payslip.sssContribution} deduction />
+        <Row indent label="Philhealth" value={payslip.philHealthContribution} deduction />
+        <Row indent label="HDMF" value={payslip.hdmfContribution} deduction />
+        <div className="mt-1 border-t border-ink-900 pt-1">
+          <Subtotal label="Taxable Salary" value={payslip.taxableSalary} />
+        </div>
+
+        <p className="pt-2 text-[13px]">Less:</p>
+        <Row indent label="Withholding Tax" value={payslip.withholdingTax} deduction />
+        <Row indent label="Cash Advance" value={payslip.cashAdvance} deduction />
+        <Row indent label="SSS Loan" value={payslip.sssLoan} deduction />
+        <Row indent label="HDMF Loan" value={payslip.hdmfLoan} deduction />
+        {payslip.companyLoanDeduction > 0 && (
+          <Row indent label="Company Loan" value={payslip.companyLoanDeduction} deduction />
+        )}
+        <div className="mt-1 border-t border-ink-900 pt-1">
+          <Subtotal label="Net Salary" value={payslip.netSalary} />
+        </div>
+
+        <p className="pt-2 text-[13px]">Add:</p>
+        <Row indent label="Transportation Allowance" value={payslip.transportationAllowance} />
+        <Row indent label="Rice Subsidy Allowance" value={payslip.riceSubsidyAllowance} />
+        <div className="mt-1 flex justify-between border-t border-ink-900 pt-1 text-[13px] font-bold">
+          <span>Total Remittance</span>
+          <span>Php{n(payslip.totalRemittance)}</span>
+        </div>
+      </div>
+
+      <p className="mt-2 text-[11px] italic text-ink-500">{amountToWords(payslip.totalRemittance)}</p>
+    </div>
+  );
+}
+
+function SlipStub({ payslip, run }: { payslip: Payslip; run: PayrollRun }) {
+  return (
+    <div className="border-x border-b border-ink-900 px-5 py-4 text-[13px] text-ink-900">
+      <div className="flex items-start justify-between">
+        <span>
+          Name: <span className="ml-1">{payslip.employeeName}</span>
+        </span>
+        <span>Employee No.: {payslip.employeeId.slice(0, 8).toUpperCase()}</span>
+      </div>
+      <p className="mt-1">
+        For the Period {formatDate(run.payPeriodStart)} to {formatDate(run.payPeriodEnd)}
+      </p>
+
+      <div className="mt-8 flex justify-end">
+        <div className="text-center">
+          <div className="mb-1 h-8 border-b border-ink-900" style={{ width: '220px' }} />
+          <p className="text-xs">Received By</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function PayslipDocument({ payslip, run, onClose }: PayslipDocumentProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/50 px-4 py-8 print:static print:bg-white print:px-0 print:py-0">
-      <div className="flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-white shadow-xl print:max-h-none print:max-w-none print:overflow-visible print:rounded-none print:shadow-none">
+      <div className="flex max-h-full w-full max-w-xl flex-col overflow-hidden rounded-xl bg-white shadow-xl print:max-h-none print:max-w-none print:overflow-visible print:rounded-none print:shadow-none">
         {/* Toolbar — hidden when printing */}
         <div className="flex items-center justify-between border-b border-navy-100 px-6 py-4 print:hidden">
-          <h2 className="text-base font-semibold text-ink-900">Payslip</h2>
+          <h2 className="text-base font-semibold text-ink-900">Pay Slip</h2>
           <div className="flex items-center gap-2">
             <button
               onClick={() => window.print()}
@@ -38,123 +152,10 @@ export function PayslipDocument({ payslip, run, onClose }: PayslipDocumentProps)
         </div>
 
         {/* Printable document */}
-        <div id="payslip-print-area" className="overflow-y-auto px-8 py-8 print:overflow-visible print:px-10 print:py-6">
-          <div className="rounded-lg border-2 border-navy-900 print:border">
-            <div className="h-2 bg-navy-900" />
-
-            <div className="p-6">
-              {/* Letterhead */}
-              <div className="flex items-start justify-between border-b border-navy-100 pb-4">
-                <div>
-                  <p className="text-lg font-bold text-ink-900">{COMPANY_NAME}</p>
-                  <p className="text-sm text-ink-500">{COMPANY_ADDRESS}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs font-medium uppercase tracking-wide text-ink-300">Pay Date</p>
-                  <p className="text-sm font-semibold text-ink-900">{formatDate(run.payDate)}</p>
-                </div>
-              </div>
-
-              {/* Pay to / amount */}
-              <div className="flex items-start justify-between border-b border-navy-100 py-4">
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-ink-300">Pay to the order of</p>
-                  <p className="text-lg font-bold text-ink-900">{payslip.employeeName}</p>
-                  <p className="text-sm text-ink-500">{payslip.department}</p>
-                </div>
-                <div className="rounded-lg border border-navy-100 bg-sand-50 px-4 py-2 text-right">
-                  <p className="text-xs font-medium uppercase tracking-wide text-ink-300">Net Pay</p>
-                  <p className="text-xl font-bold text-ink-900">{formatCurrency(payslip.netPay)}</p>
-                </div>
-              </div>
-
-              <p className="border-b border-navy-100 py-3 text-sm italic text-ink-500">
-                {amountToWords(payslip.netPay)}
-              </p>
-
-              {/* Pay period */}
-              <div className="grid grid-cols-2 gap-4 border-b border-navy-100 py-4 text-sm">
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-ink-300">Pay Period</p>
-                  <p className="font-medium text-ink-900">
-                    {formatDate(run.payPeriodStart)} – {formatDate(run.payPeriodEnd)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-ink-300">Reference No.</p>
-                  <p className="font-medium text-ink-900">{payslip.id.slice(0, 8).toUpperCase()}</p>
-                </div>
-              </div>
-
-              {/* Earnings & Deductions */}
-              <div className="grid grid-cols-2 gap-6 py-4">
-                <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-good-600">Earnings</p>
-                  <dl className="space-y-1.5 text-sm">
-                    <div className="flex justify-between">
-                      <dt className="text-ink-500">Basic Pay</dt>
-                      <dd className="font-medium text-ink-900">{formatCurrency(payslip.basicPay)}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-ink-500">Overtime Pay</dt>
-                      <dd className="font-medium text-ink-900">{formatCurrency(payslip.overtimePay)}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-ink-500">Allowances</dt>
-                      <dd className="font-medium text-ink-900">{formatCurrency(payslip.allowances)}</dd>
-                    </div>
-                    <div className="flex justify-between border-t border-navy-100 pt-1.5 font-semibold">
-                      <dt className="text-ink-900">Gross Pay</dt>
-                      <dd className="text-ink-900">{formatCurrency(payslip.grossPay)}</dd>
-                    </div>
-                  </dl>
-                </div>
-
-                <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-bad-600">Deductions</p>
-                  <dl className="space-y-1.5 text-sm">
-                    <div className="flex justify-between">
-                      <dt className="text-ink-500">SSS Contribution</dt>
-                      <dd className="font-medium text-ink-900">{formatCurrency(payslip.sssContribution)}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-ink-500">PhilHealth</dt>
-                      <dd className="font-medium text-ink-900">{formatCurrency(payslip.philHealthContribution)}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-ink-500">Pag-IBIG</dt>
-                      <dd className="font-medium text-ink-900">{formatCurrency(payslip.pagIbigContribution)}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-ink-500">Withholding Tax</dt>
-                      <dd className="font-medium text-ink-900">{formatCurrency(payslip.withholdingTax)}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-ink-500">Other Deductions</dt>
-                      <dd className="font-medium text-ink-900">{formatCurrency(payslip.otherDeductions)}</dd>
-                    </div>
-                    <div className="flex justify-between border-t border-navy-100 pt-1.5 font-semibold">
-                      <dt className="text-ink-900">Total Deductions</dt>
-                      <dd className="text-ink-900">{formatCurrency(payslip.totalDeductions)}</dd>
-                    </div>
-                  </dl>
-                </div>
-              </div>
-
-              {/* Net pay highlight */}
-              <div className="flex items-center justify-between rounded-lg bg-navy-900 px-4 py-3 print:bg-white print:border print:border-navy-900">
-                <p className="text-sm font-semibold text-white print:text-ink-900">Net Pay</p>
-                <p className="text-lg font-bold text-white print:text-ink-900">{formatCurrency(payslip.netPay)}</p>
-              </div>
-
-              {/* Signature */}
-              <div className="mt-8 flex justify-end">
-                <div className="text-center">
-                  <div className="mb-1 h-10 border-b border-ink-300" style={{ width: '220px' }} />
-                  <p className="text-xs text-ink-500">Authorized Signature</p>
-                </div>
-              </div>
-            </div>
+        <div id="payslip-print-area" className="overflow-y-auto bg-sand-50 px-8 py-8 print:overflow-visible print:bg-white print:px-10 print:py-6">
+          <div className="mx-auto max-w-md bg-white font-serif">
+            <SlipBody payslip={payslip} run={run} />
+            <SlipStub payslip={payslip} run={run} />
           </div>
 
           <p className="mt-4 text-center text-xs text-ink-300 print:hidden">
@@ -179,6 +180,7 @@ export function PayslipDocument({ payslip, run, onClose }: PayslipDocumentProps)
             width: 100%;
             padding: 0 !important;
             margin: 0 !important;
+            background: white !important;
           }
         }
       `}</style>

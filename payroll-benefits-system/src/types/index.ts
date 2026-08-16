@@ -27,6 +27,11 @@ export interface Employee {
   employmentStatus: EmploymentStatus;
   dateHired: string; // ISO date
   baseSalary: number;
+  loanDeductionPerCutoff: number;
+  transportationAllowance: number;
+  riceSubsidyAllowance: number;
+  sssLoanPerCutoff: number;
+  hdmfLoanPerCutoff: number;
 }
 
 // ---------- Payroll Management ----------
@@ -55,16 +60,24 @@ export interface Payslip {
   employeeName: string;
   department: string;
   basicPay: number;
+  taxRefund: number;
+  slCashConversion: number;
   overtimePay: number;
-  allowances: number;
-  grossPay: number;
+  lateUndertimeAbsenceDeduction: number;
+  totalSalary: number;
   sssContribution: number;
   philHealthContribution: number;
-  pagIbigContribution: number;
+  hdmfContribution: number;
+  taxableSalary: number;
   withholdingTax: number;
-  otherDeductions: number;
-  totalDeductions: number;
-  netPay: number;
+  cashAdvance: number;
+  sssLoan: number;
+  hdmfLoan: number;
+  companyLoanDeduction: number;
+  netSalary: number;
+  transportationAllowance: number;
+  riceSubsidyAllowance: number;
+  totalRemittance: number;
   status: 'pending' | 'computed' | 'released';
   emailSentAt?: string | null;
   smsSentAt?: string | null;
@@ -79,6 +92,9 @@ export interface AttendanceSummary {
   lateMinutes: number;
   overtimeHours: number;
   unpaidAbsenceDays: number;
+  cashAdvance: number;
+  taxRefund: number;
+  slCashConversion: number;
 }
 
 // ---------- Compensation Planning ----------

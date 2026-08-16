@@ -12,26 +12,36 @@ class Payslip extends Model
 
     protected $fillable = [
         'payroll_run_id', 'employee_id', 'employee_name', 'department',
-        'basic_pay', 'overtime_pay', 'allowances', 'gross_pay',
-        'sss_contribution', 'philhealth_contribution', 'pagibig_contribution',
-        'withholding_tax', 'other_deductions', 'total_deductions', 'net_pay', 'status',
-        'email_sent_at', 'sms_sent_at',
+        'basic_pay', 'tax_refund', 'sl_cash_conversion', 'overtime_pay',
+        'late_undertime_absence_deduction', 'total_salary',
+        'sss_contribution', 'philhealth_contribution', 'pagibig_contribution', 'taxable_salary',
+        'withholding_tax', 'cash_advance', 'sss_loan', 'hdmf_loan', 'company_loan_deduction', 'net_salary',
+        'transportation_allowance', 'rice_subsidy_allowance', 'total_remittance',
+        'status', 'email_sent_at', 'sms_sent_at',
     ];
 
     protected function casts(): array
     {
         return [
             'basic_pay' => 'decimal:2',
+            'tax_refund' => 'decimal:2',
+            'sl_cash_conversion' => 'decimal:2',
             'overtime_pay' => 'decimal:2',
-            'allowances' => 'decimal:2',
-            'gross_pay' => 'decimal:2',
+            'late_undertime_absence_deduction' => 'decimal:2',
+            'total_salary' => 'decimal:2',
             'sss_contribution' => 'decimal:2',
             'philhealth_contribution' => 'decimal:2',
             'pagibig_contribution' => 'decimal:2',
+            'taxable_salary' => 'decimal:2',
             'withholding_tax' => 'decimal:2',
-            'other_deductions' => 'decimal:2',
-            'total_deductions' => 'decimal:2',
-            'net_pay' => 'decimal:2',
+            'cash_advance' => 'decimal:2',
+            'sss_loan' => 'decimal:2',
+            'hdmf_loan' => 'decimal:2',
+            'company_loan_deduction' => 'decimal:2',
+            'net_salary' => 'decimal:2',
+            'transportation_allowance' => 'decimal:2',
+            'rice_subsidy_allowance' => 'decimal:2',
+            'total_remittance' => 'decimal:2',
             'email_sent_at' => 'datetime',
             'sms_sent_at' => 'datetime',
         ];

@@ -21,6 +21,11 @@ class EmployeeResource extends JsonResource
             'employmentStatus' => $this->employment_status,
             'dateHired' => $this->date_hired?->toDateString(),
             'baseSalary' => (float) $this->base_salary,
+            'loanDeductionPerCutoff' => (float) $this->loan_deduction_per_cutoff,
+            'transportationAllowance' => (float) $this->transportation_allowance,
+            'riceSubsidyAllowance' => (float) $this->rice_subsidy_allowance,
+            'sssLoanPerCutoff' => (float) $this->sss_loan_per_cutoff,
+            'hdmfLoanPerCutoff' => (float) $this->hdmf_loan_per_cutoff,
         ];
     }
 }

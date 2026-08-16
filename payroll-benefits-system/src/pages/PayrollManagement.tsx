@@ -115,6 +115,9 @@ function AttendancePanel({ run, onComputed }: { run: PayrollRun; onComputed: () 
         lateMinutes: row.lateMinutes,
         overtimeHours: row.overtimeHours,
         unpaidAbsenceDays: row.unpaidAbsenceDays,
+        cashAdvance: row.cashAdvance,
+        taxRefund: row.taxRefund,
+        slCashConversion: row.slCashConversion,
       });
     } finally {
       setSavingId(null);
@@ -199,6 +202,51 @@ function AttendancePanel({ run, onComputed }: { run: PayrollRun; onComputed: () 
       align: 'right',
     },
     {
+      header: 'Cash advance',
+      render: (r) => (
+        <input
+          type="number"
+          min={0}
+          step={0.01}
+          value={r.cashAdvance}
+          onChange={(e) => updateField(r, 'cashAdvance', Number(e.target.value))}
+          onBlur={() => saveRow(rows[r.employeeId] ?? r)}
+          className="w-24 rounded-lg border border-navy-100 px-2 py-1 text-right text-sm outline-none focus:border-teal-500"
+        />
+      ),
+      align: 'right',
+    },
+    {
+      header: 'Tax refund',
+      render: (r) => (
+        <input
+          type="number"
+          min={0}
+          step={0.01}
+          value={r.taxRefund}
+          onChange={(e) => updateField(r, 'taxRefund', Number(e.target.value))}
+          onBlur={() => saveRow(rows[r.employeeId] ?? r)}
+          className="w-24 rounded-lg border border-navy-100 px-2 py-1 text-right text-sm outline-none focus:border-teal-500"
+        />
+      ),
+      align: 'right',
+    },
+    {
+      header: 'SL - Cash conversion',
+      render: (r) => (
+        <input
+          type="number"
+          min={0}
+          step={0.01}
+          value={r.slCashConversion}
+          onChange={(e) => updateField(r, 'slCashConversion', Number(e.target.value))}
+          onBlur={() => saveRow(rows[r.employeeId] ?? r)}
+          className="w-24 rounded-lg border border-navy-100 px-2 py-1 text-right text-sm outline-none focus:border-teal-500"
+        />
+      ),
+      align: 'right',
+    },
+    {
       header: '',
       render: (r) => (savingId === r.employeeId ? <span className="text-xs text-ink-300">Saving…</span> : null),
     },
@@ -207,10 +255,12 @@ function AttendancePanel({ run, onComputed }: { run: PayrollRun; onComputed: () 
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-navy-100 bg-teal-100/40 p-4 text-sm text-ink-900">
-        <p className="font-semibold">Attendance summary for this cutoff</p>
+        <p className="font-semibold">Attendance &amp; adjustments for this cutoff</p>
         <p className="mt-1 text-ink-500">
-          Enter each employee's totals for this pay period, then compute payroll. In a full system these
-          numbers would sync in automatically from Time &amp; Attendance — here they're entered directly.
+          Since this isn't connected to a Time &amp; Attendance system yet, every employee is automatically
+          filled in with full attendance for this cutoff. Only edit the employees who had lates, absences, or
+          overtime, plus any one-off amounts for this cutoff (cash advance, tax refund, SL-cash conversion) —
+          everyone else is ready to compute as-is.
         </p>
       </div>
 
@@ -328,9 +378,14 @@ function PayslipsPanel({ run, onRunUpdated }: { run: PayrollRun; onRunUpdated: (
   async function handleRelease() {
     setBusy(true);
     try {
-      await payrollService.releaseRun(run.id);
+      const { emailSummary } = await payrollService.releaseRun(run.id);
       onRunUpdated();
       refetch();
+      setSendNotice(
+        emailSummary.emailed > 0
+          ? `Payslips released. Automatically emailed ${emailSummary.emailed} active employee${emailSummary.emailed === 1 ? '' : 's'}${emailSummary.failed ? `, ${emailSummary.failed} failed` : ''}.`
+          : 'Payslips released. No active employees with an email on file to send to.'
+      );
     } finally {
       setBusy(false);
     }
@@ -422,9 +477,9 @@ function PayslipsPanel({ run, onRunUpdated }: { run: PayrollRun; onRunUpdated: (
                   </th>
                   <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-ink-500">Employee</th>
                   <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-ink-500">Department</th>
-                  <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-ink-500">Gross pay</th>
+                  <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-ink-500">Total salary</th>
                   <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-ink-500">Deductions</th>
-                  <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-ink-500">Net pay</th>
+                  <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-ink-500">Total remittance</th>
                   <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-ink-500">Status</th>
                   <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-ink-500">Sent</th>
                   <th className="px-5 py-3" />
@@ -444,9 +499,9 @@ function PayslipsPanel({ run, onRunUpdated }: { run: PayrollRun; onRunUpdated: (
                     </td>
                     <td className="px-5 py-3.5 font-medium text-ink-900">{r.employeeName}</td>
                     <td className="px-5 py-3.5 text-ink-900">{r.department}</td>
-                    <td className="px-5 py-3.5 text-right text-ink-900">{formatCurrency(r.grossPay)}</td>
-                    <td className="px-5 py-3.5 text-right text-ink-900">{formatCurrency(r.totalDeductions)}</td>
-                    <td className="px-5 py-3.5 text-right font-semibold text-ink-900">{formatCurrency(r.netPay)}</td>
+                    <td className="px-5 py-3.5 text-right text-ink-900">{formatCurrency(r.totalSalary)}</td>
+                    <td className="px-5 py-3.5 text-right text-ink-900">{formatCurrency(r.totalSalary - r.netSalary)}</td>
+                    <td className="px-5 py-3.5 text-right font-semibold text-ink-900">{formatCurrency(r.totalRemittance)}</td>
                     <td className="px-5 py-3.5">
                       <StatusBadge status={r.status} />
                     </td>
@@ -558,8 +613,8 @@ export function PayrollManagement() {
     { header: 'Period', render: (r) => `${formatDate(r.payPeriodStart)} – ${formatDate(r.payPeriodEnd)}` },
     { header: 'Pay date', render: (r) => formatDate(r.payDate) },
     { header: 'Employees', render: (r) => r.totalEmployees, align: 'center' },
-    { header: 'Gross total', render: (r) => formatCurrency(r.grossTotal), align: 'right' },
-    { header: 'Net total', render: (r) => <span className="font-semibold">{formatCurrency(r.netTotal)}</span>, align: 'right' },
+    { header: 'Total salary', render: (r) => formatCurrency(r.grossTotal), align: 'right' },
+    { header: 'Total remittance', render: (r) => <span className="font-semibold">{formatCurrency(r.netTotal)}</span>, align: 'right' },
     { header: 'Status', render: (r) => <StatusBadge status={r.status} /> },
     {
       header: '',

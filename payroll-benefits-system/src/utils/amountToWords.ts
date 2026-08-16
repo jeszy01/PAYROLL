@@ -20,10 +20,6 @@ function threeDigitsToWords(n: number): string {
   return result.trim();
 }
 
-/**
- * Converts a peso amount to words for the printable payslip, e.g.
- * 12345.50 -> "Twelve Thousand Three Hundred Forty-Five and 50/100 Pesos"
- */
 export function amountToWords(amount: number): string {
   const pesos = Math.floor(amount);
   const centavos = Math.round((amount - pesos) * 100);
