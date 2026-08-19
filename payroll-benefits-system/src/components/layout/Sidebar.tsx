@@ -1,4 +1,3 @@
-import logo from '../../assets/Logo.png';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutGrid,
@@ -12,6 +11,7 @@ import {
   ChevronsRight,
 } from 'lucide-react';
 import { useState } from 'react';
+import logo from '../../assets/archon-nell-logo.png';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: LayoutGrid, end: true },
@@ -33,11 +33,13 @@ export function Sidebar() {
       }`}
     >
       <div className="flex items-center gap-3 px-5 py-6">
-        <img src={logo} alt="Company logo" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white">
+          <img src={logo} alt="Archon Nell Incorporated" className="h-9 w-9 object-contain" />
+        </div>
         {!collapsed && (
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-white">Payroll &amp; Benefits</p>
-            <p className="truncate text-xs text-navy-100/60">Management System</p>
+            <p className="truncate text-sm font-bold text-white">Archon Nell Incorporated</p>
+            <p className="truncate text-xs text-navy-100/60">Payroll &amp; Benefits</p>
           </div>
         )}
       </div>

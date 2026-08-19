@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { LockKeyhole } from 'lucide-react';
 import { authService } from '../services/auth.service';
 import { ApiError } from '../services/apiClient';
+import logo from '../assets/archon-nell-logo.png';
 
 export function Login() {
   const [email, setEmail] = useState('');
@@ -32,12 +33,12 @@ export function Login() {
     <div className="flex min-h-screen items-center justify-center bg-sand-50 px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-clay-500 text-lg font-bold text-white">
-            PB
+          <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm">
+            <img src={logo} alt="Archon Nell Incorporated" className="h-14 w-14 object-contain" />
           </div>
           <div className="text-center">
-            <h1 className="text-lg font-bold text-ink-900">Payroll &amp; Benefits</h1>
-            <p className="text-sm text-ink-500">Sign in to your account</p>
+            <h1 className="text-lg font-bold text-ink-900">Archon Nell Incorporated</h1>
+            <p className="text-sm text-ink-500">Payroll &amp; Benefits — Sign in to your account</p>
           </div>
         </div>
 
