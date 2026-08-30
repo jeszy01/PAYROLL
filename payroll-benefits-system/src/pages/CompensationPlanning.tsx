@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Plus, LineChart, Check, X as XIcon } from 'lucide-react';
+import { Plus, LineChart, Check, X as XIcon, ClipboardEdit, CheckCircle2 } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { DataTable, type Column } from '../components/common/DataTable';
 import { EmptyState } from '../components/common/EmptyState';
 import { LoadingState, ErrorState } from '../components/common/LoadError';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { StatCard } from '../components/common/StatCard';
 import { Modal } from '../components/common/Modal';
 import { TextField, SelectField, TextAreaField } from '../components/common/FormField';
 import { EmployeePicker } from '../components/common/EmployeePicker';
@@ -111,7 +112,7 @@ function NewGradeModal({ onClose, onCreated }: { onClose: () => void; onCreated:
           <button
             type="submit"
             disabled={submitting}
-            className="rounded-lg bg-navy-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-navy-800 disabled:opacity-50"
+            className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:opacity-50"
           >
             {submitting ? 'Saving…' : 'Save grade'}
           </button>
@@ -231,7 +232,7 @@ function NewAdjustmentModal({ onClose, onCreated }: { onClose: () => void; onCre
           <button
             type="submit"
             disabled={submitting}
-            className="rounded-lg bg-navy-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-navy-800 disabled:opacity-50"
+            className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:opacity-50"
           >
             {submitting ? 'Submitting…' : 'Submit request'}
           </button>
@@ -259,7 +260,7 @@ function SalaryGradesTab() {
       <div className="flex justify-end">
         <button
           onClick={() => setShowNew(true)}
-          className="flex items-center gap-2 rounded-lg bg-navy-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-navy-800"
+          className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-700"
         >
           <Plus size={16} /> Add salary grade
         </button>
@@ -337,7 +338,7 @@ function AdjustmentsTab() {
       <div className="flex justify-end">
         <button
           onClick={() => setShowNew(true)}
-          className="flex items-center gap-2 rounded-lg bg-navy-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-navy-800"
+          className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-700"
         >
           <Plus size={16} /> Request adjustment
         </button>
@@ -363,9 +364,20 @@ function AdjustmentsTab() {
 
 export function CompensationPlanning() {
   const [tab, setTab] = useState<'grades' | 'adjustments'>('grades');
+  const { data: grades } = useApiResource(() => compensationService.listSalaryGrades(), []);
+  const { data: adjustments } = useApiResource(() => compensationService.listAdjustments(), []);
+
+  const pendingCount = (adjustments ?? []).filter((a) => a.status === 'pending').length;
+  const implementedCount = (adjustments ?? []).filter((a) => a.status === 'implemented').length;
 
   return (
-    <Layout title="Compensation Planning" subtitle="Salary structures and compensation adjustment requests">
+    <Layout title="Compensation Planning" subtitle="Grades, structures &amp; adjustments">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard icon={LineChart} label="Salary Grades" value={String((grades ?? []).length)} tone="primary" hint="Active bands" />
+        <StatCard icon={ClipboardEdit} label="Pending Adjustments" value={String(pendingCount)} tone="clay" hint="Awaiting approval" />
+        <StatCard icon={CheckCircle2} label="Implemented (YTD)" value={String(implementedCount)} tone="good" hint="Salary changes applied" />
+      </div>
+
       <div className="mb-4 flex w-fit rounded-lg border border-navy-100 bg-white p-1">
         {(
           [
@@ -377,7 +389,7 @@ export function CompensationPlanning() {
             key={t.key}
             onClick={() => setTab(t.key)}
             className={`rounded-md px-4 py-2 text-sm font-semibold transition ${
-              tab === t.key ? 'bg-navy-900 text-white' : 'text-ink-500 hover:bg-sand-100'
+              tab === t.key ? 'bg-primary-600 text-white' : 'text-ink-500 hover:bg-sand-100'
             }`}
           >
             {t.label}

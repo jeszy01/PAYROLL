@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Users, Eye, Pencil, Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Plus, Users, Eye, Pencil, Trash2, Download, Search, RotateCcw } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { DataTable, type Column } from '../components/common/DataTable';
 import { EmptyState } from '../components/common/EmptyState';
@@ -18,6 +18,35 @@ const STATUS_LABEL: Record<EmploymentStatus, string> = {
   suspended: 'Suspended',
   separated: 'Separated',
 };
+
+const AVATAR_COLORS = ['#2f5fdb', '#7c5cf5', '#1e7a4c', '#c97b5a', '#2f6b82', '#b3781a'];
+
+function avatarColor(seed: string) {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
+
+function initials(first: string, last: string) {
+  return `${first[0] ?? ''}${last[0] ?? ''}`.toUpperCase();
+}
+
+function exportEmployeesCsv(rows: Employee[]) {
+  const header = ['Employee #', 'First name', 'Last name', 'Email', 'Department', 'Position', 'Status', 'Date hired', 'Base salary'];
+  const lines = rows.map((r) =>
+    [r.employeeNumber, r.firstName, r.lastName, r.email, r.department, r.position, STATUS_LABEL[r.employmentStatus], r.dateHired, r.baseSalary]
+      .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+      .join(',')
+  );
+  const csv = [header.join(','), ...lines].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `employees-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 function EmployeeFormModal({
   title,
@@ -217,7 +246,7 @@ function EmployeeFormModal({
           <button
             type="submit"
             disabled={submitting}
-            className="rounded-lg bg-navy-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-navy-800 disabled:opacity-50"
+            className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:opacity-50"
           >
             {submitting ? 'Saving…' : initial ? 'Save changes' : 'Add employee'}
           </button>
@@ -286,6 +315,35 @@ export function Employees() {
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
+  const [search, setSearch] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+
+  const departments = useMemo(
+    () => [...new Set((data ?? []).map((e) => e.department))].sort(),
+    [data]
+  );
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return (data ?? []).filter((e) => {
+      if (departmentFilter && e.department !== departmentFilter) return false;
+      if (statusFilter && e.employmentStatus !== statusFilter) return false;
+      if (!q) return true;
+      return (
+        e.employeeNumber.toLowerCase().includes(q) ||
+        e.email.toLowerCase().includes(q) ||
+        `${e.firstName} ${e.lastName}`.toLowerCase().includes(q)
+      );
+    });
+  }, [data, search, departmentFilter, statusFilter]);
+
+  function resetFilters() {
+    setSearch('');
+    setDepartmentFilter('');
+    setStatusFilter('');
+  }
+
   async function handleDelete(employee: Employee) {
     if (!confirm(`Remove ${employee.firstName} ${employee.lastName} from employee records? This cannot be undone.`)) {
       return;
@@ -302,12 +360,35 @@ export function Employees() {
   }
 
   const columns: Column<Employee>[] = [
-    { header: 'Employee #', render: (r) => <span className="font-medium">{r.employeeNumber}</span> },
-    { header: 'Name', render: (r) => `${r.firstName} ${r.lastName}` },
-    { header: 'Email', render: (r) => r.email },
-    { header: 'Phone', render: (r) => r.phone || '—' },
-    { header: 'Department', render: (r) => r.department },
-    { header: 'Position', render: (r) => r.position },
+    {
+      header: 'Employee',
+      render: (r) => (
+        <div className="flex items-center gap-3">
+          <div
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
+            style={{ backgroundColor: avatarColor(r.employeeNumber) }}
+          >
+            {initials(r.firstName, r.lastName)}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate font-medium text-ink-900">
+              {r.firstName} {r.lastName}
+            </p>
+            <p className="truncate text-xs text-ink-500">{r.email}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      header: 'Position / Dept',
+      render: (r) => (
+        <div className="min-w-0">
+          <p className="truncate text-ink-900">{r.position}</p>
+          <p className="truncate text-xs text-ink-500">{r.department}</p>
+        </div>
+      ),
+    },
+    { header: 'Employee #', render: (r) => r.employeeNumber },
     { header: 'Date hired', render: (r) => formatDate(r.dateHired) },
     { header: 'Base salary', render: (r) => formatCurrency(r.baseSalary), align: 'right' },
     {
@@ -352,30 +433,99 @@ export function Employees() {
   ];
 
   return (
-    <Layout title="Employees" subtitle="Employee records used across payroll, claims, and benefits">
-      <div className="flex justify-end mb-4">
-        <button
-          onClick={() => setShowNew(true)}
-          className="flex items-center gap-2 rounded-lg bg-navy-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-navy-800"
-        >
-          <Plus size={16} /> Add employee
-        </button>
+    <Layout title="Employees" subtitle="Directory &amp; profiles">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-ink-900">Employee Management</h2>
+          <p className="mt-1 text-sm text-ink-500">
+            {data ? `${data.length} employees across ${departments.length} departments` : 'Loading…'}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => exportEmployeesCsv(filtered)}
+            disabled={!data || data.length === 0}
+            className="flex items-center gap-2 rounded-lg border border-navy-100 bg-white px-4 py-2.5 text-sm font-semibold text-ink-900 transition hover:bg-sand-100 disabled:opacity-50"
+          >
+            <Download size={16} /> Export CSV
+          </button>
+          <button
+            onClick={() => setShowNew(true)}
+            className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-700"
+          >
+            <Plus size={16} /> Add Employee
+          </button>
+        </div>
       </div>
 
-      {loading && <LoadingState label="Loading employees…" />}
-      {!loading && error && <ErrorState message={error} onRetry={refetch} />}
-      {!loading && !error && (!data || data.length === 0) && (
-        <EmptyState
-          icon={Users}
-          title="No employees yet"
-          description="Add your first employee record — this is what payroll, claims, compensation, and benefits will reference."
-          actionLabel="Add employee"
-          onAction={() => setShowNew(true)}
-        />
-      )}
-      {!loading && !error && data && data.length > 0 && (
-        <DataTable columns={columns} rows={data} rowKey={(r) => r.id} />
-      )}
+      <div className="rounded-xl border border-navy-100 bg-white p-5 shadow-sm">
+        <h3 className="text-sm font-semibold text-ink-900">Employee Directory</h3>
+        <p className="mb-4 text-xs text-ink-500">Manage workforce records</p>
+
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <div className="flex min-w-[220px] flex-1 items-center gap-2 rounded-lg border border-navy-100 bg-sand-50 px-3 py-2 text-sm">
+            <Search size={16} className="shrink-0 text-ink-500" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name, ID, email…"
+              className="w-full bg-transparent text-ink-900 outline-none placeholder:text-ink-500"
+            />
+          </div>
+          <select
+            value={departmentFilter}
+            onChange={(e) => setDepartmentFilter(e.target.value)}
+            className="rounded-lg border border-navy-100 bg-white px-3 py-2 text-sm text-ink-900 outline-none focus:border-teal-500"
+          >
+            <option value="">All Departments</option>
+            {departments.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </select>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded-lg border border-navy-100 bg-white px-3 py-2 text-sm text-ink-900 outline-none focus:border-teal-500"
+          >
+            <option value="">All Status</option>
+            {Object.entries(STATUS_LABEL).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={resetFilters}
+            className="flex items-center gap-1.5 rounded-lg border border-navy-100 px-3 py-2 text-sm font-medium text-ink-500 transition hover:bg-sand-100"
+          >
+            <RotateCcw size={14} /> Reset
+          </button>
+        </div>
+
+        {loading && <LoadingState label="Loading employees…" />}
+        {!loading && error && <ErrorState message={error} onRetry={refetch} />}
+        {!loading && !error && (!data || data.length === 0) && (
+          <EmptyState
+            icon={Users}
+            title="No employees yet"
+            description="Add your first employee record — this is what payroll, claims, compensation, and benefits will reference."
+            actionLabel="Add employee"
+            onAction={() => setShowNew(true)}
+          />
+        )}
+        {!loading && !error && data && data.length > 0 && filtered.length === 0 && (
+          <EmptyState
+            icon={Search}
+            title="No matching employees"
+            description="Try adjusting your search or filters."
+          />
+        )}
+        {!loading && !error && filtered.length > 0 && (
+          <DataTable columns={columns} rows={filtered} rowKey={(r) => r.id} />
+        )}
+      </div>
 
       {showNew && (
         <EmployeeFormModal
