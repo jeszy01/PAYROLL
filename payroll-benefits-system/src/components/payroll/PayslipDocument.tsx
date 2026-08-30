@@ -131,7 +131,7 @@ export function PayslipDocument({ payslip, run, onClose }: PayslipDocumentProps)
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/50 px-4 py-8 print:static print:bg-white print:px-0 print:py-0">
       <div className="flex max-h-full w-full max-w-xl flex-col overflow-hidden rounded-xl bg-white shadow-xl print:max-h-none print:max-w-none print:overflow-visible print:rounded-none print:shadow-none">
         {/* Toolbar — hidden when printing */}
-        <div className="flex items-center justify-between border-b border-navy-100 px-6 py-4 print:hidden">
+        <div className="flex items-center justify-between border-b border-line px-6 py-4 print:hidden">
           <h2 className="text-base font-semibold text-ink-900">Pay Slip</h2>
           <div className="flex items-center gap-2">
             <button

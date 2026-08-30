@@ -14,10 +14,10 @@ interface DataTableProps<T> {
 
 export function DataTable<T>({ columns, rows, rowKey }: DataTableProps<T>) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-navy-100 bg-white shadow-sm">
+    <div className="overflow-x-auto rounded-xl border border-line bg-surface shadow-sm">
       <table className="w-full min-w-max text-left text-sm">
         <thead>
-          <tr className="border-b border-navy-100 bg-sand-50/70">
+          <tr className="border-b border-line bg-sand-50/70">
             {columns.map((col) => (
               <th
                 key={col.header}
@@ -32,7 +32,7 @@ export function DataTable<T>({ columns, rows, rowKey }: DataTableProps<T>) {
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={rowKey(row)} className="border-b border-navy-100 last:border-0 hover:bg-sand-50/60">
+            <tr key={rowKey(row)} className="border-b border-line last:border-0 hover:bg-sand-50/60">
               {columns.map((col) => (
                 <td
                   key={col.header}

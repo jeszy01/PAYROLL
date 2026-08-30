@@ -310,7 +310,7 @@ export function HmoBenefits() {
 
   return (
     <Layout title="HMO & Benefits Administration" subtitle="Manage benefit plans and employee enrollments">
-      <div className="mb-4 flex w-fit rounded-lg border border-navy-100 bg-white p-1">
+      <div className="mb-4 flex w-fit rounded-lg border border-line bg-surface p-1">
         {(
           [
             { key: 'plans', label: 'Benefit Plans' },

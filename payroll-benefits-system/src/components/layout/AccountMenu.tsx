@@ -47,7 +47,7 @@ export function AccountMenu() {
   }
 
   return (
-    <div ref={containerRef} className="relative border-l border-navy-100 pl-4">
+    <div ref={containerRef} className="relative border-l border-line pl-4">
       <button
         onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-3 rounded-lg py-1 pr-1 transition hover:bg-sand-100"
@@ -63,8 +63,8 @@ export function AccountMenu() {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-xl border border-navy-100 bg-white shadow-lg">
-          <div className="border-b border-navy-100 px-4 py-3">
+        <div className="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
+          <div className="border-b border-line px-4 py-3">
             <p className="truncate text-sm font-semibold text-ink-900">{user.fullName}</p>
             <p className="truncate text-xs text-ink-500">{user.role}</p>
           </div>
@@ -80,7 +80,7 @@ export function AccountMenu() {
             </Link>
           </div>
 
-          <div className="border-t border-navy-100 py-1">
+          <div className="border-t border-line py-1">
             <button
               onClick={handleSignOut}
               className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-bad-600 transition hover:bg-bad-100/50"

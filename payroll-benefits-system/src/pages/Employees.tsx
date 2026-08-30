@@ -194,7 +194,7 @@ function EmployeeFormModal({
             onChange={(e) => setForm({ ...form, baseSalary: e.target.value })}
           />
         </div>
-        <div className="border-t border-navy-100 pt-4">
+        <div className="border-t border-line pt-4">
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-500">
             Recurring per-cutoff amounts
           </p>
@@ -291,7 +291,7 @@ function ViewEmployeeModal({ employee, onClose }: { employee: Employee; onClose:
 
   return (
     <Modal title={`${employee.firstName} ${employee.lastName}`} onClose={onClose}>
-      <dl className="divide-y divide-navy-100">
+      <dl className="divide-y divide-line">
         {rows.map(([label, value]) => (
           <div key={label} className="flex items-center justify-between gap-4 py-2.5 text-sm">
             <dt className="text-ink-500">{label}</dt>
@@ -445,7 +445,7 @@ export function Employees() {
           <button
             onClick={() => exportEmployeesCsv(filtered)}
             disabled={!data || data.length === 0}
-            className="flex items-center gap-2 rounded-lg border border-navy-100 bg-white px-4 py-2.5 text-sm font-semibold text-ink-900 transition hover:bg-sand-100 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-ink-900 transition hover:bg-sand-100 disabled:opacity-50"
           >
             <Download size={16} /> Export CSV
           </button>
@@ -458,12 +458,12 @@ export function Employees() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-navy-100 bg-white p-5 shadow-sm">
+      <div className="rounded-xl border border-line bg-surface p-5 shadow-sm">
         <h3 className="text-sm font-semibold text-ink-900">Employee Directory</h3>
         <p className="mb-4 text-xs text-ink-500">Manage workforce records</p>
 
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          <div className="flex min-w-[220px] flex-1 items-center gap-2 rounded-lg border border-navy-100 bg-sand-50 px-3 py-2 text-sm">
+          <div className="flex min-w-[220px] flex-1 items-center gap-2 rounded-lg border border-line bg-sand-50 px-3 py-2 text-sm">
             <Search size={16} className="shrink-0 text-ink-500" />
             <input
               value={search}
@@ -475,7 +475,7 @@ export function Employees() {
           <select
             value={departmentFilter}
             onChange={(e) => setDepartmentFilter(e.target.value)}
-            className="rounded-lg border border-navy-100 bg-white px-3 py-2 text-sm text-ink-900 outline-none focus:border-teal-500"
+            className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink-900 outline-none focus:border-teal-500"
           >
             <option value="">All Departments</option>
             {departments.map((d) => (
@@ -487,7 +487,7 @@ export function Employees() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-lg border border-navy-100 bg-white px-3 py-2 text-sm text-ink-900 outline-none focus:border-teal-500"
+            className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink-900 outline-none focus:border-teal-500"
           >
             <option value="">All Status</option>
             {Object.entries(STATUS_LABEL).map(([value, label]) => (
@@ -498,7 +498,7 @@ export function Employees() {
           </select>
           <button
             onClick={resetFilters}
-            className="flex items-center gap-1.5 rounded-lg border border-navy-100 px-3 py-2 text-sm font-medium text-ink-500 transition hover:bg-sand-100"
+            className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-sm font-medium text-ink-500 transition hover:bg-sand-100"
           >
             <RotateCcw size={14} /> Reset
           </button>

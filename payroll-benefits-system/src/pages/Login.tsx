@@ -84,7 +84,7 @@ export function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@company.com"
-                className="w-full rounded-lg border border-navy-100 bg-white px-3 py-2.5 text-sm text-ink-900 outline-none transition focus:border-teal-500"
+                className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-sm text-ink-900 outline-none transition focus:border-teal-500"
               />
             </label>
 
@@ -99,7 +99,7 @@ export function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
-                  className="w-full rounded-lg border border-navy-100 bg-white px-3 py-2.5 pr-10 text-sm text-ink-900 outline-none transition focus:border-teal-500"
+                  className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 pr-10 text-sm text-ink-900 outline-none transition focus:border-teal-500"
                 />
                 <button
                   type="button"

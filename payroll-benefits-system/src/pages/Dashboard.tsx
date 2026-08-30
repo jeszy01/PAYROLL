@@ -147,7 +147,7 @@ export function Dashboard() {
           <div className="flex items-center gap-3">
             <Link
               to="/payroll"
-              className="flex items-center gap-2 rounded-lg border border-navy-100 bg-white px-4 py-2.5 text-sm font-semibold text-ink-900 transition hover:bg-sand-100"
+              className="flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-ink-900 transition hover:bg-sand-100"
             >
               <RefreshCw size={16} /> Run Payroll
             </Link>
@@ -199,7 +199,7 @@ export function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <div className="rounded-xl border border-navy-100 bg-white p-5 shadow-sm lg:col-span-2">
+          <div className="rounded-xl border border-line bg-surface p-5 shadow-sm lg:col-span-2">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-ink-900">Net Payroll Trend</h3>
@@ -230,7 +230,7 @@ export function Dashboard() {
             )}
           </div>
 
-          <div className="rounded-xl border border-navy-100 bg-white p-5 shadow-sm">
+          <div className="rounded-xl border border-line bg-surface p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-ink-900">Workforce by Department</h3>
@@ -249,7 +249,7 @@ export function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div className="rounded-xl border border-navy-100 bg-white p-5 shadow-sm">
+          <div className="rounded-xl border border-line bg-surface p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-ink-900">Latest Payroll Run</h3>
               {latestRun && <StatusBadge status={latestRun.status} />}
@@ -273,7 +273,7 @@ export function Dashboard() {
                     <p className="mt-1 text-lg font-bold text-primary-600">{formatCurrency(latestRun.netTotal)}</p>
                   </div>
                 </div>
-                <div className="mt-5 flex items-center justify-between border-t border-navy-100 pt-4">
+                <div className="mt-5 flex items-center justify-between border-t border-line pt-4">
                   <p className="text-xs text-ink-500">Pay date: {formatDate(latestRun.payDate)}</p>
                   <Link
                     to="/payroll"
@@ -286,7 +286,7 @@ export function Dashboard() {
             )}
           </div>
 
-          <div className="rounded-xl border border-navy-100 bg-white p-5 shadow-sm">
+          <div className="rounded-xl border border-line bg-surface p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-ink-900">Claims by Status</h3>
@@ -305,10 +305,10 @@ export function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div className="rounded-xl border border-navy-100 bg-white p-5 shadow-sm">
+          <div className="rounded-xl border border-line bg-surface p-5 shadow-sm">
             <h3 className="mb-1 text-sm font-semibold text-ink-900">Pending Approvals</h3>
             <p className="mb-4 text-xs text-ink-500">Items needing your attention</p>
-            <div className="divide-y divide-navy-100">
+            <div className="divide-y divide-line">
               <div className="flex items-center justify-between gap-3 py-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-clay-100 text-clay-600">
@@ -363,7 +363,7 @@ export function Dashboard() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-navy-100 bg-white p-5 shadow-sm">
+          <div className="rounded-xl border border-line bg-surface p-5 shadow-sm">
             <h3 className="mb-1 text-sm font-semibold text-ink-900">Quick Actions</h3>
             <p className="mb-4 text-xs text-ink-500">Common tasks</p>
             <div className="grid grid-cols-2 gap-3">
@@ -371,7 +371,7 @@ export function Dashboard() {
                 <Link
                   key={`${item.to}-${i}`}
                   to={item.to}
-                  className="flex flex-col items-center gap-2 rounded-lg border border-navy-100 bg-sand-50 px-3 py-4 text-center text-xs font-semibold text-ink-900 transition hover:bg-sand-100"
+                  className="flex flex-col items-center gap-2 rounded-lg border border-line bg-sand-50 px-3 py-4 text-center text-xs font-semibold text-ink-900 transition hover:bg-sand-100"
                 >
                   <item.icon size={18} className="text-primary-600" strokeWidth={1.75} />
                   {item.label}

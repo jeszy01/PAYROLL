@@ -12,11 +12,11 @@ export function Modal({ title, onClose, children, width = 'md' }: ModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/50 px-4">
       <div
-        className={`max-h-[90vh] w-full overflow-y-auto rounded-xl bg-white shadow-xl ${
+        className={`max-h-[90vh] w-full overflow-y-auto rounded-xl bg-surface shadow-xl ${
           width === 'lg' ? 'max-w-2xl' : 'max-w-md'
         }`}
       >
-        <div className="flex items-center justify-between border-b border-navy-100 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-line px-6 py-4">
           <h2 className="text-base font-semibold text-ink-900">{title}</h2>
           <button
             onClick={onClose}

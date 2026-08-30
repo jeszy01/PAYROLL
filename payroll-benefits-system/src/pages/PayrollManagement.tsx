@@ -151,7 +151,7 @@ function AttendancePanel({ run, onComputed }: { run: PayrollRun; onComputed: () 
           value={r.daysPresent}
           onChange={(e) => updateField(r, 'daysPresent', Number(e.target.value))}
           onBlur={() => saveRow(rows[r.employeeId] ?? r)}
-          className="w-20 rounded-lg border border-navy-100 px-2 py-1 text-right text-sm outline-none focus:border-teal-500"
+          className="w-20 rounded-lg border border-line px-2 py-1 text-right text-sm outline-none focus:border-teal-500"
         />
       ),
       align: 'right',
@@ -165,7 +165,7 @@ function AttendancePanel({ run, onComputed }: { run: PayrollRun; onComputed: () 
           value={r.lateMinutes}
           onChange={(e) => updateField(r, 'lateMinutes', Number(e.target.value))}
           onBlur={() => saveRow(rows[r.employeeId] ?? r)}
-          className="w-20 rounded-lg border border-navy-100 px-2 py-1 text-right text-sm outline-none focus:border-teal-500"
+          className="w-20 rounded-lg border border-line px-2 py-1 text-right text-sm outline-none focus:border-teal-500"
         />
       ),
       align: 'right',
@@ -180,7 +180,7 @@ function AttendancePanel({ run, onComputed }: { run: PayrollRun; onComputed: () 
           value={r.overtimeHours}
           onChange={(e) => updateField(r, 'overtimeHours', Number(e.target.value))}
           onBlur={() => saveRow(rows[r.employeeId] ?? r)}
-          className="w-20 rounded-lg border border-navy-100 px-2 py-1 text-right text-sm outline-none focus:border-teal-500"
+          className="w-20 rounded-lg border border-line px-2 py-1 text-right text-sm outline-none focus:border-teal-500"
         />
       ),
       align: 'right',
@@ -196,7 +196,7 @@ function AttendancePanel({ run, onComputed }: { run: PayrollRun; onComputed: () 
           value={r.unpaidAbsenceDays}
           onChange={(e) => updateField(r, 'unpaidAbsenceDays', Number(e.target.value))}
           onBlur={() => saveRow(rows[r.employeeId] ?? r)}
-          className="w-24 rounded-lg border border-navy-100 px-2 py-1 text-right text-sm outline-none focus:border-teal-500"
+          className="w-24 rounded-lg border border-line px-2 py-1 text-right text-sm outline-none focus:border-teal-500"
         />
       ),
       align: 'right',
@@ -211,7 +211,7 @@ function AttendancePanel({ run, onComputed }: { run: PayrollRun; onComputed: () 
           value={r.cashAdvance}
           onChange={(e) => updateField(r, 'cashAdvance', Number(e.target.value))}
           onBlur={() => saveRow(rows[r.employeeId] ?? r)}
-          className="w-24 rounded-lg border border-navy-100 px-2 py-1 text-right text-sm outline-none focus:border-teal-500"
+          className="w-24 rounded-lg border border-line px-2 py-1 text-right text-sm outline-none focus:border-teal-500"
         />
       ),
       align: 'right',
@@ -226,7 +226,7 @@ function AttendancePanel({ run, onComputed }: { run: PayrollRun; onComputed: () 
           value={r.taxRefund}
           onChange={(e) => updateField(r, 'taxRefund', Number(e.target.value))}
           onBlur={() => saveRow(rows[r.employeeId] ?? r)}
-          className="w-24 rounded-lg border border-navy-100 px-2 py-1 text-right text-sm outline-none focus:border-teal-500"
+          className="w-24 rounded-lg border border-line px-2 py-1 text-right text-sm outline-none focus:border-teal-500"
         />
       ),
       align: 'right',
@@ -241,7 +241,7 @@ function AttendancePanel({ run, onComputed }: { run: PayrollRun; onComputed: () 
           value={r.slCashConversion}
           onChange={(e) => updateField(r, 'slCashConversion', Number(e.target.value))}
           onBlur={() => saveRow(rows[r.employeeId] ?? r)}
-          className="w-24 rounded-lg border border-navy-100 px-2 py-1 text-right text-sm outline-none focus:border-teal-500"
+          className="w-24 rounded-lg border border-line px-2 py-1 text-right text-sm outline-none focus:border-teal-500"
         />
       ),
       align: 'right',
@@ -254,7 +254,7 @@ function AttendancePanel({ run, onComputed }: { run: PayrollRun; onComputed: () 
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-navy-100 bg-teal-100/40 p-4 text-sm text-ink-900">
+      <div className="rounded-xl border border-line bg-teal-100/40 p-4 text-sm text-ink-900">
         <p className="font-semibold">Attendance &amp; adjustments for this cutoff</p>
         <p className="mt-1 text-ink-500">
           Since this isn't connected to a Time &amp; Attendance system yet, every employee is automatically
@@ -306,13 +306,13 @@ function SendChannelMenu({
       <button
         onClick={() => setOpen((o) => !o)}
         disabled={disabled}
-        className="flex items-center gap-1.5 rounded-lg border border-navy-100 px-2.5 py-1.5 text-xs font-semibold text-ink-900 transition hover:bg-sand-100 disabled:opacity-50"
+        className="flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs font-semibold text-ink-900 transition hover:bg-sand-100 disabled:opacity-50"
       >
         <Send size={13} />
         Send
       </button>
       {open && (
-        <div className="absolute right-0 z-20 mt-1 w-36 overflow-hidden rounded-lg border border-navy-100 bg-white shadow-lg">
+        <div className="absolute right-0 z-20 mt-1 w-36 overflow-hidden rounded-lg border border-line bg-surface shadow-lg">
           <button
             onClick={() => {
               onSend('email');
@@ -435,13 +435,13 @@ function PayslipsPanel({ run, onRunUpdated }: { run: PayrollRun; onRunUpdated: (
       {!loading && !error && data && data.length > 0 && (
         <>
           {sendNotice && (
-            <div className="rounded-lg border border-navy-100 bg-teal-100/40 px-4 py-2.5 text-sm text-ink-900">
+            <div className="rounded-lg border border-line bg-teal-100/40 px-4 py-2.5 text-sm text-ink-900">
               {sendNotice}
             </div>
           )}
 
           {selectedIds.size > 0 && (
-            <div className="flex items-center justify-between rounded-lg border border-navy-100 bg-sand-50 px-4 py-2.5">
+            <div className="flex items-center justify-between rounded-lg border border-line bg-sand-50 px-4 py-2.5">
               <span className="text-sm font-medium text-ink-900">{selectedIds.size} selected</span>
               <div className="flex gap-2">
                 <button
@@ -454,7 +454,7 @@ function PayslipsPanel({ run, onRunUpdated }: { run: PayrollRun; onRunUpdated: (
                 <button
                   onClick={() => handleSendBulk('sms')}
                   disabled={bulkSending}
-                  className="flex items-center gap-1.5 rounded-lg border border-navy-100 px-3 py-1.5 text-xs font-semibold text-ink-900 transition hover:bg-sand-100 disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-semibold text-ink-900 transition hover:bg-sand-100 disabled:opacity-50"
                 >
                   <MessageSquare size={13} /> {bulkSending ? 'Sending…' : 'Send via SMS'}
                 </button>
@@ -462,17 +462,17 @@ function PayslipsPanel({ run, onRunUpdated }: { run: PayrollRun; onRunUpdated: (
             </div>
           )}
 
-          <div className="overflow-x-auto rounded-xl border border-navy-100 bg-white shadow-sm">
+          <div className="overflow-x-auto rounded-xl border border-line bg-surface shadow-sm">
             <table className="w-full min-w-max text-left text-sm">
               <thead>
-                <tr className="border-b border-navy-100 bg-sand-50/70">
+                <tr className="border-b border-line bg-sand-50/70">
                   <th className="w-10 px-5 py-3">
                     <input
                       type="checkbox"
                       checked={allSelected}
                       onChange={toggleAll}
                       aria-label="Select all payslips"
-                      className="h-4 w-4 rounded border-navy-100"
+                      className="h-4 w-4 rounded border-line"
                     />
                   </th>
                   <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-ink-500">Employee</th>
@@ -487,14 +487,14 @@ function PayslipsPanel({ run, onRunUpdated }: { run: PayrollRun; onRunUpdated: (
               </thead>
               <tbody>
                 {data.map((r) => (
-                  <tr key={r.id} className="border-b border-navy-100 last:border-0 hover:bg-sand-50/60">
+                  <tr key={r.id} className="border-b border-line last:border-0 hover:bg-sand-50/60">
                     <td className="px-5 py-3.5">
                       <input
                         type="checkbox"
                         checked={selectedIds.has(r.id)}
                         onChange={() => toggleOne(r.id)}
                         aria-label={`Select ${r.employeeName}`}
-                        className="h-4 w-4 rounded border-navy-100"
+                        className="h-4 w-4 rounded border-line"
                       />
                     </td>
                     <td className="px-5 py-3.5 font-medium text-ink-900">{r.employeeName}</td>
@@ -690,7 +690,7 @@ export function PayrollManagement() {
       ) : (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <div className="flex w-fit rounded-lg border border-navy-100 bg-white p-1">
+            <div className="flex w-fit rounded-lg border border-line bg-surface p-1">
               {(
                 [
                   { key: 'active', label: 'Active' },

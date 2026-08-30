@@ -285,12 +285,12 @@ export function ClaimsReimbursement() {
         />
       </div>
 
-      <div className="rounded-xl border border-navy-100 bg-white p-5 shadow-sm">
+      <div className="rounded-xl border border-line bg-surface p-5 shadow-sm">
         <h3 className="text-sm font-semibold text-ink-900">Claims Pipeline</h3>
         <p className="mb-4 text-xs text-ink-500">All reimbursement requests</p>
 
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          <div className="flex min-w-[220px] flex-1 items-center gap-2 rounded-lg border border-navy-100 bg-sand-50 px-3 py-2 text-sm">
+          <div className="flex min-w-[220px] flex-1 items-center gap-2 rounded-lg border border-line bg-sand-50 px-3 py-2 text-sm">
             <Search size={16} className="shrink-0 text-ink-500" />
             <input
               value={search}
@@ -302,7 +302,7 @@ export function ClaimsReimbursement() {
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="rounded-lg border border-navy-100 bg-white px-3 py-2 text-sm text-ink-900 outline-none focus:border-teal-500"
+            className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink-900 outline-none focus:border-teal-500"
           >
             <option value="">All Types</option>
             {Object.entries(CLAIM_TYPE_LABEL).map(([value, label]) => (
@@ -314,7 +314,7 @@ export function ClaimsReimbursement() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-lg border border-navy-100 bg-white px-3 py-2 text-sm text-ink-900 outline-none focus:border-teal-500"
+            className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink-900 outline-none focus:border-teal-500"
           >
             <option value="">All Status</option>
             <option value="submitted">Submitted</option>
@@ -325,7 +325,7 @@ export function ClaimsReimbursement() {
           </select>
           <button
             onClick={resetFilters}
-            className="flex items-center gap-1.5 rounded-lg border border-navy-100 px-3 py-2 text-sm font-medium text-ink-500 transition hover:bg-sand-100"
+            className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-sm font-medium text-ink-500 transition hover:bg-sand-100"
           >
             <RotateCcw size={14} /> Reset
           </button>

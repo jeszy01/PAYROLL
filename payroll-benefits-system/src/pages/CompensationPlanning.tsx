@@ -378,7 +378,7 @@ export function CompensationPlanning() {
         <StatCard icon={CheckCircle2} label="Implemented (YTD)" value={String(implementedCount)} tone="good" hint="Salary changes applied" />
       </div>
 
-      <div className="mb-4 flex w-fit rounded-lg border border-navy-100 bg-white p-1">
+      <div className="mb-4 flex w-fit rounded-lg border border-line bg-surface p-1">
         {(
           [
             { key: 'grades', label: 'Salary Grades' },

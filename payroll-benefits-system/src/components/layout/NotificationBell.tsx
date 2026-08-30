@@ -30,7 +30,7 @@ export function NotificationBell() {
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label="Notifications"
-        className="relative rounded-lg border border-navy-100 p-2.5 text-ink-500 transition hover:bg-sand-100"
+        className="relative rounded-lg border border-line p-2.5 text-ink-500 transition hover:bg-sand-100"
       >
         <Bell size={18} />
         {count > 0 && (
@@ -41,8 +41,8 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-40 mt-2 w-80 overflow-hidden rounded-xl border border-navy-100 bg-white shadow-lg">
-          <div className="border-b border-navy-100 px-4 py-3">
+        <div className="absolute right-0 z-40 mt-2 w-80 overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
+          <div className="border-b border-line px-4 py-3">
             <h3 className="text-sm font-semibold text-ink-900">Needs attention</h3>
           </div>
 
