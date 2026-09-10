@@ -41,7 +41,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@payroll-benefits.local
+      PGADMIN_DEFAULT_EMAIL: admin@payroll-benefits.com
       PGADMIN_DEFAULT_PASSWORD: admin
       PGADMIN_CONFIG_SERVER_MODE: "False"
     ports:
@@ -73,8 +73,8 @@ services:
       SESSION_DRIVER: redis
       CACHE_STORE: redis
       QUEUE_CONNECTION: redis
-      FRONTEND_URL: http://localhost:5173   
-      SANCTUM_STATEFUL_DOMAINS: "localhost:5173,127.0.0.1:5173"
+      FRONTEND_URL: http://localhost:4173
+      SANCTUM_STATEFUL_DOMAINS: "localhost:4173,127.0.0.1:4173"
     ports:
       - "8000:8000"
     volumes:
@@ -90,7 +90,7 @@ services:
     environment:
       VITE_API_BASE_URL: http://localhost:8000/api
     ports:
-      - "5173:5173"
+      - "4173:5173"
     volumes:
       - ./payroll-benefits-system:/app
       - frontend_node_modules:/app/node_modules

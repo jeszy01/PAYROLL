@@ -1,0 +1,132 @@
+import { Link, NavLink } from 'react-router-dom';
+import {
+  LayoutGrid,
+  Clock,
+  Banknote,
+  Receipt,
+  HeartPulse,
+  UserCircle,
+  ChevronsLeft,
+  ChevronsRight,
+  ArrowLeftRight,
+} from 'lucide-react';
+import { useState } from 'react';
+import logo from '../../assets/archon-nell-logo.png';
+import { useCurrentUser } from '../../hooks/useCurrentUser';
+
+function initialsOf(fullName?: string) {
+  if (!fullName) return '—';
+  return fullName
+    .split(' ')
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+}
+
+const NAV_ITEMS = [
+  { to: '/ess', label: 'Dashboard', icon: LayoutGrid, end: true },
+  { to: '/ess/attendance', label: 'Attendance', icon: Clock },
+  { to: '/ess/payslips', label: 'My Payslips', icon: Banknote },
+  { to: '/ess/claims', label: 'My Claims', icon: Receipt },
+  { to: '/ess/benefits', label: 'My Benefits', icon: HeartPulse },
+  { to: '/ess/profile', label: 'My Profile', icon: UserCircle },
+];
+
+export function EmployeeSidebar() {
+  const [collapsed, setCollapsed] = useState(false);
+  const { data: user } = useCurrentUser();
+
+  return (
+    <aside
+      className={`flex h-screen shrink-0 flex-col bg-primary-700 text-white transition-all ${
+        collapsed ? 'w-20' : 'w-64'
+      }`}
+    >
+      <div className="flex items-center gap-3 px-5 py-6">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white">
+          <img src={logo} alt="Archon Nell Incorporated" className="h-9 w-9 object-contain" />
+        </div>
+        {!collapsed && (
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold text-white">Archon Nell Incorporated</p>
+            <p className="truncate text-xs text-white/60">Employee Self-Service</p>
+          </div>
+        )}
+      </div>
+
+      <nav className="flex-1 space-y-1 px-3">
+        {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            className={({ isActive }) =>
+              `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                isActive
+                  ? 'bg-primary-500 text-white'
+                  : 'text-white/75 hover:bg-white/10 hover:text-white'
+              }`
+            }
+            title={collapsed ? label : undefined}
+          >
+            <Icon size={18} strokeWidth={1.75} className="shrink-0" />
+            {!collapsed && <span className="truncate">{label}</span>}
+          </NavLink>
+        ))}
+      </nav>
+
+      <div className="border-t border-white/20 p-3">
+        <Link
+          to="/"
+          title={collapsed ? 'Switch to Admin View' : undefined}
+          className={`mb-2 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/75 transition hover:bg-white/10 hover:text-white ${
+            collapsed ? 'justify-center' : ''
+          }`}
+        >
+          <ArrowLeftRight size={18} strokeWidth={1.75} className="shrink-0" />
+          {!collapsed && <span className="truncate">Switch to Admin View</span>}
+        </Link>
+
+        {!collapsed ? (
+          <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-1 items-center gap-3 px-1 py-1">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-500 text-sm font-semibold text-white">
+                {initialsOf(user?.fullName)}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-white">{user?.fullName ?? 'Not signed in'}</p>
+                <p className="truncate text-xs text-white/60">Employee</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setCollapsed(true)}
+              aria-label="Collapse sidebar"
+              title="Collapse"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/20 text-white/70 transition hover:bg-white/10 hover:text-white"
+            >
+              <ChevronsLeft size={16} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-2">
+            <div
+              title={user?.fullName ?? 'Not signed in'}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-500 text-sm font-semibold text-white"
+            >
+              {initialsOf(user?.fullName)}
+            </div>
+            <button
+              onClick={() => setCollapsed(false)}
+              aria-label="Expand sidebar"
+              title="Expand"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 text-white/70 transition hover:bg-white/10 hover:text-white"
+            >
+              <ChevronsRight size={16} />
+            </button>
+          </div>
+        )}
+      </div>
+    </aside>
+  );
+}

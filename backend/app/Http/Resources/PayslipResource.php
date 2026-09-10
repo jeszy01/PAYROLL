@@ -13,6 +13,7 @@ class PayslipResource extends JsonResource
             'id' => $this->id,
             'payrollRunId' => $this->payroll_run_id,
             'employeeId' => $this->employee_id,
+            'employeeNumber' => $this->employee_number,
             'employeeName' => $this->employee_name,
             'department' => $this->department,
             'basicPay' => (float) $this->basic_pay,

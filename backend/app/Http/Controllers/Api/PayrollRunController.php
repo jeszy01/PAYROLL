@@ -6,21 +6,41 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\PayrollRunResource;
 use App\Models\AttendanceSummary;
 use App\Models\Employee;
+use App\Models\PayrollAnomaly;
 use App\Models\PayrollRun;
 use App\Models\Payslip;
+use App\Services\PayrollAnomalyDetector;
 use App\Services\PayslipMailer;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class PayrollRunController extends Controller
 {
-    public function __construct(private PayslipMailer $mailer)
+    public function __construct(private PayslipMailer $mailer, private PayrollAnomalyDetector $anomalyDetector)
     {
+    }
+
+    /**
+     * Eager-loads the two anomaly counts every list/detail view needs for
+     * the "⚠️ X anomalies detected" badge and the Approve-button gate,
+     * without an extra query per run.
+     */
+    private function withAnomalyCounts(Builder $query): Builder
+    {
+        return $query->withCount([
+            // "Unresolved" = anything still needing eyes on it, i.e. not dismissed.
+            'anomalies as unresolved_anomalies_count' => fn ($q) => $q->where('status', '!=', PayrollAnomaly::STATUS_DISMISSED),
+            // "Blocking" = what actually disables Approve — a critical flag
+            // that hasn't been dismissed, or anything marked needs_correction.
+            'anomalies as blocking_anomalies_count' => fn ($q) => $q->where('status', '!=', PayrollAnomaly::STATUS_DISMISSED)
+                ->where(fn ($q2) => $q2->where('severity', PayrollAnomaly::SEVERITY_CRITICAL)->orWhere('status', PayrollAnomaly::STATUS_NEEDS_CORRECTION)),
+        ]);
     }
 
     public function index(Request $request)
     {
-        $query = PayrollRun::orderByDesc('created_at');
+        $query = $this->withAnomalyCounts(PayrollRun::query())->orderByDesc('created_at');
 
         if (! $request->boolean('includeArchived')) {
             $query->whereNull('archived_at');
@@ -51,7 +71,9 @@ class PayrollRunController extends Controller
 
     public function show(PayrollRun $payrollRun)
     {
-        return new PayrollRunResource($payrollRun);
+        return new PayrollRunResource(
+            $this->withAnomalyCounts(PayrollRun::query())->findOrFail($payrollRun->id)
+        );
     }
 
     /**
@@ -177,6 +199,7 @@ class PayrollRunController extends Controller
                 Payslip::create([
                     'payroll_run_id' => $payrollRun->id,
                     'employee_id' => $employee->id,
+                    'employee_number' => $employee->employee_number,
                     'employee_name' => "{$employee->first_name} {$employee->last_name}",
                     'department' => $employee->department,
                     'basic_pay' => $basicPay,
@@ -215,11 +238,34 @@ class PayrollRunController extends Controller
             ]);
         });
 
-        return new PayrollRunResource($payrollRun->fresh());
+        // AI-powered anomaly scan — runs automatically on every (re)compute,
+        // before the run reaches HR/Admin for approval. See
+        // PayrollAnomalyDetector for the rule set.
+        $this->anomalyDetector->scan($payrollRun->fresh());
+
+        return new PayrollRunResource(
+            $this->withAnomalyCounts(PayrollRun::query())->findOrFail($payrollRun->id)
+        );
     }
 
+    /**
+     * Blocked while any unresolved/needs-correction critical anomaly (or
+     * any anomaly explicitly marked "needs correction", regardless of
+     * severity) remains on this run — see PayrollAnomaly::blocksApproval().
+     * HR/Admin clears the block from the anomaly panel by dismissing the
+     * flag (false positive) or fixing the data and recomputing/rescanning.
+     */
     public function approve(PayrollRun $payrollRun)
     {
+        $blocking = $payrollRun->anomalies()->get()->filter(fn (PayrollAnomaly $a) => $a->blocksApproval());
+
+        if ($blocking->isNotEmpty()) {
+            return response()->json([
+                'message' => "This run has {$blocking->count()} unresolved anomaly flag(s) that must be dismissed or corrected before approval.",
+                'blockingAnomalies' => $blocking->count(),
+            ], 422);
+        }
+
         $payrollRun->update(['status' => 'approved']);
 
         return new PayrollRunResource($payrollRun);

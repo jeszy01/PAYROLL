@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\ResolvesOwnEmployee;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PayslipResource;
 use App\Models\Employee;
@@ -13,8 +14,19 @@ use Illuminate\Support\Facades\Log;
 
 class PayslipController extends Controller
 {
+    use ResolvesOwnEmployee;
+
     public function __construct(private PayslipMailer $mailer)
     {
+    }
+
+    public function mine(Request $request)
+    {
+        $employee = $this->ownEmployee($request);
+
+        return PayslipResource::collection(
+            Payslip::where('employee_id', $employee->id)->orderByDesc('created_at')->get()
+        );
     }
 
     public function indexForRun(PayrollRun $payrollRun)

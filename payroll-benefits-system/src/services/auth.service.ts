@@ -1,7 +1,5 @@
-import { apiClient } from './apiClient';
+import { apiClient, TOKEN_KEY } from './apiClient';
 import type { CurrentUser } from '../hooks/useCurrentUser';
-
-const TOKEN_KEY = 'pbms_auth_token';
 
 interface LoginResponse {
   token: string;

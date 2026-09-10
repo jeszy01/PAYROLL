@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AnalyticsController;
+use App\Http\Controllers\Api\AttendanceRecordController;
 use App\Http\Controllers\Api\AttendanceSummaryController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BenefitEnrollmentController;
@@ -8,6 +9,8 @@ use App\Http\Controllers\Api\BenefitPlanController;
 use App\Http\Controllers\Api\ClaimController;
 use App\Http\Controllers\Api\CompensationAdjustmentController;
 use App\Http\Controllers\Api\EmployeeController;
+use App\Http\Controllers\Api\EssTwoFactorController;
+use App\Http\Controllers\Api\PayrollAnomalyController;
 use App\Http\Controllers\Api\PayrollRunController;
 use App\Http\Controllers\Api\PayslipController;
 use App\Http\Controllers\Api\SalaryGradeController;
@@ -25,45 +28,66 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
 
-    // ---------- User Management (admin) ----------
-    Route::get('/users', [UserController::class, 'index']);
-    Route::post('/users', [UserController::class, 'store']);
-    Route::patch('/users/{user}', [UserController::class, 'update']);
-    Route::delete('/users/{user}', [UserController::class, 'destroy']);
+    // ---------- User Management (admin only) ----------
+    // Creating/editing/deleting login accounts and assigning roles is a
+    // system-administration function, not a day-to-day HR task.
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/users', [UserController::class, 'index']);
+        Route::post('/users', [UserController::class, 'store']);
+        Route::patch('/users/{user}', [UserController::class, 'update']);
+        Route::delete('/users/{user}', [UserController::class, 'destroy']);
+    });
 
     // ---------- Employees ----------
+    // Admin and HR both manage the directory day-to-day; permanently
+    // removing a record is admin-only (HR should separate/deactivate
+    // instead via employmentStatus).
     Route::get('/employees', [EmployeeController::class, 'index']);
     Route::post('/employees', [EmployeeController::class, 'store']);
     Route::get('/employees/{employee}', [EmployeeController::class, 'show']);
     Route::patch('/employees/{employee}', [EmployeeController::class, 'update']);
-    Route::delete('/employees/{employee}', [EmployeeController::class, 'destroy']);
+    Route::delete('/employees/{employee}', [EmployeeController::class, 'destroy'])->middleware('role:admin');
 
     // ---------- Payroll Management ----------
+    // HR prepares and computes runs; final approval/release (which triggers
+    // payslip emailing) and destructive actions stay with Admin.
     Route::get('/payroll/runs', [PayrollRunController::class, 'index']);
     Route::post('/payroll/runs', [PayrollRunController::class, 'store']);
     Route::get('/payroll/runs/{payrollRun}', [PayrollRunController::class, 'show']);
     Route::get('/payroll/runs/{payrollRun}/attendance', [AttendanceSummaryController::class, 'indexForRun']);
     Route::post('/payroll/runs/{payrollRun}/attendance', [AttendanceSummaryController::class, 'upsert']);
     Route::post('/payroll/runs/{payrollRun}/compute', [PayrollRunController::class, 'compute']);
-    Route::post('/payroll/runs/{payrollRun}/approve', [PayrollRunController::class, 'approve']);
-    Route::post('/payroll/runs/{payrollRun}/release', [PayrollRunController::class, 'release']);
-    Route::post('/payroll/runs/{payrollRun}/archive', [PayrollRunController::class, 'archive']);
-    Route::post('/payroll/runs/{payrollRun}/unarchive', [PayrollRunController::class, 'unarchive']);
-    Route::delete('/payroll/runs/{payrollRun}', [PayrollRunController::class, 'destroy']);
+    Route::post('/payroll/runs/{payrollRun}/approve', [PayrollRunController::class, 'approve'])->middleware('role:admin');
+    Route::post('/payroll/runs/{payrollRun}/release', [PayrollRunController::class, 'release'])->middleware('role:admin');
+    Route::post('/payroll/runs/{payrollRun}/archive', [PayrollRunController::class, 'archive'])->middleware('role:admin');
+    Route::post('/payroll/runs/{payrollRun}/unarchive', [PayrollRunController::class, 'unarchive'])->middleware('role:admin');
+    Route::delete('/payroll/runs/{payrollRun}', [PayrollRunController::class, 'destroy'])->middleware('role:admin');
     Route::get('/payroll/runs/{payrollRun}/payslips', [PayslipController::class, 'indexForRun']);
     Route::post('/payroll/runs/{payrollRun}/payslips/send-bulk', [PayslipController::class, 'sendBulk']);
     Route::get('/payroll/payslips/{payslip}', [PayslipController::class, 'show']);
     Route::post('/payroll/payslips/{payslip}/send', [PayslipController::class, 'send']);
 
+    // ---------- AI-Powered Payroll Anomaly Detection ----------
+    // Reviewing/rescanning is a QA step open to HR and Admin alike (same
+    // tier as compute()); only the run-level approve/release/delete
+    // actions above are admin-only.
+    Route::get('/payroll/runs/{payrollRun}/anomalies', [PayrollAnomalyController::class, 'index']);
+    Route::post('/payroll/runs/{payrollRun}/anomalies/rescan', [PayrollAnomalyController::class, 'rescan']);
+    Route::patch('/payroll/runs/{payrollRun}/anomalies/{anomaly}', [PayrollAnomalyController::class, 'update']);
+
     // ---------- Compensation Planning ----------
+    // HR can view grades and request adjustments; defining salary
+    // structures and deciding (approving/rejecting) adjustments is admin-only.
     Route::get('/compensation/salary-grades', [SalaryGradeController::class, 'index']);
-    Route::post('/compensation/salary-grades', [SalaryGradeController::class, 'store']);
-    Route::patch('/compensation/salary-grades/{salaryGrade}', [SalaryGradeController::class, 'update']);
-    Route::delete('/compensation/salary-grades/{salaryGrade}', [SalaryGradeController::class, 'destroy']);
+    Route::middleware('role:admin')->group(function () {
+        Route::post('/compensation/salary-grades', [SalaryGradeController::class, 'store']);
+        Route::patch('/compensation/salary-grades/{salaryGrade}', [SalaryGradeController::class, 'update']);
+        Route::delete('/compensation/salary-grades/{salaryGrade}', [SalaryGradeController::class, 'destroy']);
+    });
 
     Route::get('/compensation/adjustments', [CompensationAdjustmentController::class, 'index']);
     Route::post('/compensation/adjustments', [CompensationAdjustmentController::class, 'store']);
-    Route::patch('/compensation/adjustments/{compensationAdjustment}', [CompensationAdjustmentController::class, 'update']);
+    Route::patch('/compensation/adjustments/{compensationAdjustment}', [CompensationAdjustmentController::class, 'update'])->middleware('role:admin');
 
     // ---------- Claims & Reimbursement ----------
     Route::get('/claims', [ClaimController::class, 'index']);
@@ -83,4 +107,25 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ---------- HR Analytics ----------
     Route::get('/analytics/summary', [AnalyticsController::class, 'summary']);
+
+    // ---------- Employee Self-Service ----------
+    // 2FA step-up: check/request/verify are reachable pre-verification
+    // (that's the whole point); everything else under /me is gated behind
+    // having verified this session, regardless of the caller's role.
+    Route::get('/me/2fa/status', [EssTwoFactorController::class, 'status']);
+    Route::post('/me/2fa/send', [EssTwoFactorController::class, 'send'])->middleware('throttle:3,1');
+    Route::post('/me/2fa/verify', [EssTwoFactorController::class, 'verify'])->middleware('throttle:10,1');
+
+    Route::middleware('ess.verified')->group(function () {
+        Route::get('/me/profile', [EmployeeController::class, 'me']);
+        Route::patch('/me/profile', [EmployeeController::class, 'updateMe']);
+        Route::get('/me/payslips', [PayslipController::class, 'mine']);
+        Route::get('/me/claims', [ClaimController::class, 'mine']);
+        Route::post('/me/claims', [ClaimController::class, 'storeMine']);
+        Route::get('/me/benefits', [BenefitEnrollmentController::class, 'mine']);
+        Route::get('/me/attendance/today', [AttendanceRecordController::class, 'today']);
+        Route::post('/me/attendance/clock-in', [AttendanceRecordController::class, 'clockIn']);
+        Route::post('/me/attendance/clock-out', [AttendanceRecordController::class, 'clockOut']);
+        Route::get('/me/attendance/history', [AttendanceRecordController::class, 'history']);
+    });
 });

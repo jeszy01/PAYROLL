@@ -1,3 +1,5 @@
+import { statusLabel } from '../../utils/statusLabels';
+
 type Tone = 'good' | 'warn' | 'bad' | 'neutral' | 'teal';
 
 const TONE_CLASSES: Record<Tone, string> = {
@@ -16,6 +18,10 @@ const STATUS_TONE: Record<string, Tone> = {
   approved: 'good',
   released: 'good',
   rejected: 'bad',
+  // payslip (within a payroll run) — same "good" tone as approved/released
+  // since a computed payslip is a correct, ready-to-release result, not a
+  // warning state
+  computed: 'good',
   // claims
   submitted: 'teal',
   under_review: 'warn',
@@ -34,20 +40,13 @@ const STATUS_TONE: Record<string, Tone> = {
   separated: 'neutral',
 };
 
-function labelize(value: string) {
-  return value
-    .split('_')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
-}
-
 export function StatusBadge({ status }: { status: string }) {
   const tone = STATUS_TONE[status] ?? 'neutral';
   return (
     <span
       className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${TONE_CLASSES[tone]}`}
     >
-      {labelize(status)}
+      {statusLabel(status)}
     </span>
   );
 }

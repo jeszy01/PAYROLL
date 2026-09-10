@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\ResolvesOwnEmployee;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\BenefitEnrollmentResource;
 use App\Models\BenefitEnrollment;
@@ -10,6 +11,17 @@ use Illuminate\Http\Request;
 
 class BenefitEnrollmentController extends Controller
 {
+    use ResolvesOwnEmployee;
+
+    public function mine(Request $request)
+    {
+        $employee = $this->ownEmployee($request);
+
+        return BenefitEnrollmentResource::collection(
+            BenefitEnrollment::with('dependents')->where('employee_id', $employee->id)->get()
+        );
+    }
+
     public function index()
     {
         return BenefitEnrollmentResource::collection(

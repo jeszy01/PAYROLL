@@ -17,3 +17,5 @@ yarn-error.log
 !/storage/framework/sessions/.gitkeep
 !/storage/framework/views/.gitkeep
 !/storage/logs/.gitkeep
+rr
+.rr.yaml

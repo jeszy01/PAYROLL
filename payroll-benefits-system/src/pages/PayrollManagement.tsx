@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Banknote, FileSpreadsheet, ClipboardList, Calculator, CheckCircle2, Send, Mail, MessageSquare, Archive, ArchiveRestore, Trash2 } from 'lucide-react';
+import { Plus, Banknote, FileSpreadsheet, ClipboardList, Calculator, CheckCircle2, Send, Mail, MessageSquare, Archive, ArchiveRestore, Trash2, AlertTriangle } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { DataTable, type Column } from '../components/common/DataTable';
 import { EmptyState } from '../components/common/EmptyState';
@@ -8,10 +8,26 @@ import { StatusBadge } from '../components/common/StatusBadge';
 import { Modal } from '../components/common/Modal';
 import { TextField } from '../components/common/FormField';
 import { PayslipDocument } from '../components/payroll/PayslipDocument';
+import { AnomalyPanel } from '../components/payroll/AnomalyPanel';
 import { useApiResource } from '../hooks/useApiResource';
+import { useCurrentUser, isAdmin } from '../hooks/useCurrentUser';
 import { payrollService } from '../services/payroll.service';
 import type { PayrollRun, Payslip, AttendanceSummary } from '../types';
 import { formatCurrency, formatDate } from '../utils/format';
+
+/** "⚠️ X anomalies detected" — shared by the run list and the run detail view. */
+function AnomalyBadge({ count, onClick }: { count: number; onClick: () => void }) {
+  if (count <= 0) return null;
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-1.5 rounded-full bg-clay-100 px-2.5 py-1 text-xs font-semibold text-clay-600 transition hover:bg-clay-100/70"
+    >
+      <AlertTriangle size={13} />
+      {count} {count === 1 ? 'anomaly' : 'anomalies'} detected
+    </button>
+  );
+}
 
 function NewRunModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [form, setForm] = useState({ payPeriodStart: '', payPeriodEnd: '', payDate: '', cutoffLabel: '' });
@@ -338,6 +354,8 @@ function SendChannelMenu({
 }
 
 function PayslipsPanel({ run, onRunUpdated }: { run: PayrollRun; onRunUpdated: () => void }) {
+  const { data: currentUser } = useCurrentUser();
+  const canApproveOrRelease = isAdmin(currentUser);
   const { data, loading, error, refetch } = useApiResource<Payslip[]>(
     () => payrollService.listPayslips(run.id),
     [run.id]
@@ -348,6 +366,8 @@ function PayslipsPanel({ run, onRunUpdated }: { run: PayrollRun; onRunUpdated: (
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [bulkSending, setBulkSending] = useState(false);
   const [sendNotice, setSendNotice] = useState<string | null>(null);
+  const [showAnomalies, setShowAnomalies] = useState(false);
+  const [approveError, setApproveError] = useState<string | null>(null);
 
   const allSelected = !!data && data.length > 0 && selectedIds.size === data.length;
 
@@ -367,9 +387,12 @@ function PayslipsPanel({ run, onRunUpdated }: { run: PayrollRun; onRunUpdated: (
 
   async function handleApprove() {
     setBusy(true);
+    setApproveError(null);
     try {
       await payrollService.approveRun(run.id);
       onRunUpdated();
+    } catch (err) {
+      setApproveError(err instanceof Error ? err.message : 'Could not approve this payroll run.');
     } finally {
       setBusy(false);
     }
@@ -423,6 +446,20 @@ function PayslipsPanel({ run, onRunUpdated }: { run: PayrollRun; onRunUpdated: (
 
   return (
     <div className="space-y-4">
+      {run.unresolvedAnomaliesCount > 0 && (
+        <div className="flex items-center justify-between rounded-xl border border-clay-100 bg-clay-100/30 px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-ink-900">
+            <AlertTriangle size={16} className="text-clay-600" />
+            AI anomaly scan flagged {run.unresolvedAnomaliesCount} item(s) on this run
+            {run.blockingAnomaliesCount > 0 && (
+              <span className="font-semibold text-bad-600"> — {run.blockingAnomaliesCount} blocking approval</span>
+            )}
+            .
+          </div>
+          <AnomalyBadge count={run.unresolvedAnomaliesCount} onClick={() => setShowAnomalies(true)} />
+        </div>
+      )}
+
       {loading && <LoadingState label="Loading payslips…" />}
       {!loading && error && <ErrorState message={error} onRetry={refetch} />}
       {!loading && !error && (!data || data.length === 0) && (
@@ -530,39 +567,56 @@ function PayslipsPanel({ run, onRunUpdated }: { run: PayrollRun; onRunUpdated: (
             </table>
           </div>
 
-          <div className="flex justify-end gap-3">
-            {run.status === 'for_approval' && (
-              <button
-                onClick={handleApprove}
-                disabled={busy}
-                className="flex items-center gap-2 rounded-lg bg-good-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
-              >
-                <CheckCircle2 size={16} />
-                {busy ? 'Approving…' : 'Approve payroll run'}
-              </button>
-            )}
-            {run.status === 'approved' && (
-              <button
-                onClick={handleRelease}
-                disabled={busy}
-                className="flex items-center gap-2 rounded-lg bg-navy-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-navy-800 disabled:opacity-50"
-              >
-                <Send size={16} />
-                {busy ? 'Releasing…' : 'Release payslips'}
-              </button>
-            )}
-          </div>
+          {canApproveOrRelease && (
+            <div className="flex flex-col items-end gap-2">
+              {approveError && <p className="text-sm text-bad-600">{approveError}</p>}
+              <div className="flex items-center gap-3">
+                {run.status === 'for_approval' && run.blockingAnomaliesCount > 0 && (
+                  <p className="text-xs text-bad-600">
+                    Resolve {run.blockingAnomaliesCount} blocking anomaly flag(s) before approving.
+                  </p>
+                )}
+                {run.status === 'for_approval' && (
+                  <button
+                    onClick={handleApprove}
+                    disabled={busy || run.blockingAnomaliesCount > 0}
+                    title={run.blockingAnomaliesCount > 0 ? 'Dismiss or resolve the blocking anomaly flags first.' : undefined}
+                    className="flex items-center gap-2 rounded-lg bg-good-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <CheckCircle2 size={16} />
+                    {busy ? 'Approving…' : 'Approve payroll run'}
+                  </button>
+                )}
+                {run.status === 'approved' && (
+                  <button
+                    onClick={handleRelease}
+                    disabled={busy}
+                    className="flex items-center gap-2 rounded-lg bg-navy-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-navy-800 disabled:opacity-50"
+                  >
+                    <Send size={16} />
+                    {busy ? 'Releasing…' : 'Release payslips'}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </>
       )}
 
       {viewingPayslip && (
         <PayslipDocument payslip={viewingPayslip} run={run} onClose={() => setViewingPayslip(null)} />
       )}
+
+      {showAnomalies && (
+        <AnomalyPanel run={run} onClose={() => setShowAnomalies(false)} onChanged={onRunUpdated} />
+      )}
     </div>
   );
 }
 
 export function PayrollManagement() {
+  const { data: currentUser } = useCurrentUser();
+  const canManageRuns = isAdmin(currentUser);
   const [tab, setTab] = useState<'active' | 'archived'>('active');
   const { data, loading, error, refetch } = useApiResource(
     () => payrollService.listRuns(tab === 'archived'),
@@ -570,10 +624,12 @@ export function PayrollManagement() {
   );
   const [showNewRun, setShowNewRun] = useState(false);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [anomalyRunId, setAnomalyRunId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const visibleRuns = data?.filter((r) => (tab === 'archived' ? r.isArchived : !r.isArchived)) ?? [];
   const selectedRun = data?.find((r) => r.id === selectedRunId) ?? null;
+  const anomalyRun = data?.find((r) => r.id === anomalyRunId) ?? null;
 
   async function handleArchive(run: PayrollRun) {
     setBusyId(run.id);
@@ -617,13 +673,17 @@ export function PayrollManagement() {
     { header: 'Total remittance', render: (r) => <span className="font-semibold">{formatCurrency(r.netTotal)}</span>, align: 'right' },
     { header: 'Status', render: (r) => <StatusBadge status={r.status} /> },
     {
+      header: 'Anomalies',
+      render: (r) => <AnomalyBadge count={r.unresolvedAnomaliesCount} onClick={() => setAnomalyRunId(r.id)} />,
+    },
+    {
       header: '',
       render: (r) => (
         <div className="flex items-center justify-end gap-3">
           <button onClick={() => setSelectedRunId(r.id)} className="text-sm font-semibold text-teal-700 hover:underline">
             {r.status === 'draft' ? 'Enter attendance' : 'View payslips'}
           </button>
-          {tab === 'active' ? (
+          {canManageRuns && (tab === 'active' ? (
             <>
               <button
                 onClick={() => handleArchive(r)}
@@ -656,7 +716,7 @@ export function PayrollManagement() {
             >
               <ArchiveRestore size={15} />
             </button>
-          )}
+          ))}
         </div>
       ),
       align: 'right',
@@ -743,6 +803,10 @@ export function PayrollManagement() {
       )}
 
       {showNewRun && <NewRunModal onClose={() => setShowNewRun(false)} onCreated={refetch} />}
+
+      {anomalyRun && (
+        <AnomalyPanel run={anomalyRun} onClose={() => setAnomalyRunId(null)} onChanged={refetch} />
+      )}
     </Layout>
   );
 }

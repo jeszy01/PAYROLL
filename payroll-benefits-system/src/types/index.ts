@@ -5,15 +5,20 @@
 
 export type ID = string;
 
+export type Role = 'admin' | 'hr';
+
 export interface SystemUser {
   id: ID;
   fullName: string;
   email: string;
-  role: string;
+  role: Role;
+  employeeId?: ID | null;
   createdAt: string;
 }
 
 export type EmploymentStatus = 'active' | 'on_leave' | 'suspended' | 'separated';
+export type EmploymentType = 'regular' | 'probationary' | 'contractual';
+export type CivilStatus = 'single' | 'married' | 'widowed' | 'separated';
 
 export interface Employee {
   id: ID;
@@ -22,9 +27,12 @@ export interface Employee {
   lastName: string;
   email: string;
   phone?: string | null;
+  address?: string | null;
   department: string;
   position: string;
   employmentStatus: EmploymentStatus;
+  employmentType: EmploymentType;
+  civilStatus: CivilStatus;
   dateHired: string; // ISO date
   baseSalary: number;
   loanDeductionPerCutoff: number;
@@ -32,6 +40,12 @@ export interface Employee {
   riceSubsidyAllowance: number;
   sssLoanPerCutoff: number;
   hdmfLoanPerCutoff: number;
+  sssNumber?: string | null;
+  philhealthNumber?: string | null;
+  pagibigNumber?: string | null;
+  tinNumber?: string | null;
+  shiftStart: string; // "HH:mm:ss"
+  shiftEnd: string; // "HH:mm:ss"
 }
 
 // ---------- Payroll Management ----------
@@ -50,6 +64,35 @@ export interface PayrollRun {
   grossTotal: number;
   deductionsTotal: number;
   netTotal: number;
+  unresolvedAnomaliesCount: number;
+  blockingAnomaliesCount: number;
+  createdAt: string;
+}
+
+// ---------- AI-Powered Payroll Anomaly Detection ----------
+
+export type AnomalySeverity = 'low' | 'medium' | 'critical';
+export type AnomalyStatus = 'unresolved' | 'dismissed' | 'needs_correction';
+export type AnomalyType =
+  | 'unusual_pay_change'
+  | 'high_overtime'
+  | 'duplicate_claim'
+  | 'missing_statutory_deduction'
+  | 'net_pay_error'
+  | 'proration_check_needed';
+
+export interface PayrollAnomaly {
+  id: ID;
+  payrollRunId: ID;
+  employeeId: ID;
+  employeeName: string;
+  anomalyType: AnomalyType;
+  severity: AnomalySeverity;
+  description: string;
+  suggestedAction: string;
+  metrics: Record<string, unknown> | null;
+  status: AnomalyStatus;
+  blocksApproval: boolean;
   createdAt: string;
 }
 
@@ -57,6 +100,7 @@ export interface Payslip {
   id: ID;
   payrollRunId: ID;
   employeeId: ID;
+  employeeNumber: string | null;
   employeeName: string;
   department: string;
   basicPay: number;
@@ -200,6 +244,32 @@ export interface BenefitsUtilizationPoint {
   planName: string;
   enrolled: number;
   capacity: number;
+}
+
+// ---------- Employee Self-Service: Attendance ----------
+
+export type HolidayType = 'regular' | 'special_non_working';
+export type ClockInStatus = 'on_time' | 'late';
+export type ClockOutStatus = 'on_time' | 'overtime';
+
+export interface AttendanceRecord {
+  id: ID;
+  employeeId: ID;
+  date: string; // ISO date
+  timestampIn: string | null;
+  timestampOut: string | null;
+  statusIn: ClockInStatus | null;
+  statusOut: ClockOutStatus | null;
+  minutesLate: number;
+  overtimeMinutes: number;
+  holidayType: HolidayType | null;
+}
+
+export interface TodayAttendance {
+  record: AttendanceRecord | null;
+  shiftStart: string; // "HH:mm:ss"
+  shiftEnd: string; // "HH:mm:ss"
+  holiday: { name: string; type: HolidayType } | null;
 }
 
 export interface AnalyticsSummary {

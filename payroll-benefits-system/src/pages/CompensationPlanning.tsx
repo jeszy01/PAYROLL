@@ -10,6 +10,7 @@ import { Modal } from '../components/common/Modal';
 import { TextField, SelectField, TextAreaField } from '../components/common/FormField';
 import { EmployeePicker } from '../components/common/EmployeePicker';
 import { useApiResource } from '../hooks/useApiResource';
+import { useCurrentUser, isAdmin } from '../hooks/useCurrentUser';
 import { compensationService } from '../services/compensation.service';
 import type { SalaryGrade, CompensationAdjustment, AdjustmentType } from '../types';
 import { formatCurrency, formatDate } from '../utils/format';
@@ -243,6 +244,8 @@ function NewAdjustmentModal({ onClose, onCreated }: { onClose: () => void; onCre
 }
 
 function SalaryGradesTab() {
+  const { data: currentUser } = useCurrentUser();
+  const canManage = isAdmin(currentUser);
   const { data, loading, error, refetch } = useApiResource(() => compensationService.listSalaryGrades(), []);
   const [showNew, setShowNew] = useState(false);
 
@@ -257,14 +260,16 @@ function SalaryGradesTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <button
-          onClick={() => setShowNew(true)}
-          className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-700"
-        >
-          <Plus size={16} /> Add salary grade
-        </button>
-      </div>
+      {canManage && (
+        <div className="flex justify-end">
+          <button
+            onClick={() => setShowNew(true)}
+            className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-700"
+          >
+            <Plus size={16} /> Add salary grade
+          </button>
+        </div>
+      )}
       {loading && <LoadingState label="Loading salary grades…" />}
       {!loading && error && <ErrorState message={error} onRetry={refetch} />}
       {!loading && !error && (!data || data.length === 0) && (
@@ -272,8 +277,8 @@ function SalaryGradesTab() {
           icon={LineChart}
           title="No salary grades defined"
           description="Set up salary grades to structure compensation ranges across positions."
-          actionLabel="Add salary grade"
-          onAction={() => setShowNew(true)}
+          actionLabel={canManage ? 'Add salary grade' : undefined}
+          onAction={canManage ? () => setShowNew(true) : undefined}
         />
       )}
       {!loading && !error && data && data.length > 0 && (
@@ -285,6 +290,8 @@ function SalaryGradesTab() {
 }
 
 function AdjustmentsTab() {
+  const { data: currentUser } = useCurrentUser();
+  const canDecide = isAdmin(currentUser);
   const { data, loading, error, refetch } = useApiResource(() => compensationService.listAdjustments(), []);
   const [showNew, setShowNew] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -309,7 +316,7 @@ function AdjustmentsTab() {
     {
       header: '',
       render: (r) =>
-        r.status === 'pending' ? (
+        r.status === 'pending' && canDecide ? (
           <div className="flex justify-end gap-2">
             <button
               disabled={busyId === r.id}

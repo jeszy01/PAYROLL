@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\ResolvesOwnEmployee;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ClaimResource;
 use App\Models\Claim;
@@ -9,6 +10,49 @@ use Illuminate\Http\Request;
 
 class ClaimController extends Controller
 {
+    use ResolvesOwnEmployee;
+
+    public function mine(Request $request)
+    {
+        $employee = $this->ownEmployee($request);
+
+        return ClaimResource::collection(
+            Claim::where('employee_id', $employee->id)->orderByDesc('date_submitted')->get()
+        );
+    }
+
+    /**
+     * Self-service claim submission. Identity (employee_id/name/department)
+     * is always derived from the authenticated user's linked employee —
+     * never taken from the request body — so an employee can't file a
+     * claim under someone else's name.
+     */
+    public function storeMine(Request $request)
+    {
+        $employee = $this->ownEmployee($request);
+
+        $data = $request->validate([
+            'claimType' => ['required', 'in:transportation,medical,meal,training,equipment,other'],
+            'description' => ['required', 'string'],
+            'amount' => ['required', 'numeric', 'min:0'],
+            'dateIncurred' => ['required', 'date'],
+        ]);
+
+        $claim = Claim::create([
+            'employee_id' => $employee->id,
+            'employee_name' => "{$employee->first_name} {$employee->last_name}",
+            'department' => $employee->department,
+            'claim_type' => $data['claimType'],
+            'description' => $data['description'],
+            'amount' => $data['amount'],
+            'date_incurred' => $data['dateIncurred'],
+            'date_submitted' => now()->toDateString(),
+            'status' => 'submitted',
+        ]);
+
+        return new ClaimResource($claim);
+    }
+
     public function index()
     {
         return ClaimResource::collection(

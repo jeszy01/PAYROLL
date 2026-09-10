@@ -14,8 +14,10 @@ export class ApiError extends Error {
   }
 }
 
+export const TOKEN_KEY = 'pbms_auth_token';
+
 function getAuthToken(): string | null {
-  return localStorage.getItem('pbms_auth_token');
+  return localStorage.getItem(TOKEN_KEY);
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -25,6 +27,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
@@ -38,6 +41,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     } catch {
       // response had no JSON body
     }
+
+    if (response.status === 401 && token) {
+      localStorage.removeItem(TOKEN_KEY);
+      window.location.assign('/login');
+    }
+
     throw new ApiError(message, response.status);
   }
 
