@@ -5,11 +5,24 @@
 
 export type ID = string;
 
+// The system has exactly two roles. These values must match the
+// backend's App\Models\User::ROLES list.
+export type UserRole = 'admin' | 'hr_staff';
+
+export const USER_ROLES: { value: UserRole; label: string }[] = [
+  { value: 'admin', label: 'Admin' },
+  { value: 'hr_staff', label: 'HR Staff' },
+];
+
+export function roleLabel(role: string): string {
+  return USER_ROLES.find((r) => r.value === role)?.label ?? role;
+}
+
 export interface SystemUser {
   id: ID;
   fullName: string;
   email: string;
-  role: string;
+  role: UserRole;
   createdAt: string;
 }
 

@@ -1,10 +1,11 @@
 import { useApiResource } from './useApiResource';
 import { apiClient } from '../services/apiClient';
+import type { UserRole } from '../types';
 
 export interface CurrentUser {
   id: string;
   fullName: string;
-  role: string;
+  role: UserRole;
 }
 
 export function useCurrentUser() {

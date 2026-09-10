@@ -41,7 +41,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@payroll-benefits.local
+      PGADMIN_DEFAULT_EMAIL: admin@payroll-benefits.com
       PGADMIN_DEFAULT_PASSWORD: admin
       PGADMIN_CONFIG_SERVER_MODE: "False"
     ports:

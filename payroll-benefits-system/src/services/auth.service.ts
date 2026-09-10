@@ -1,7 +1,5 @@
-import { apiClient } from './apiClient';
+import { apiClient, AUTH_TOKEN_KEY } from './apiClient';
 import type { CurrentUser } from '../hooks/useCurrentUser';
-
-const TOKEN_KEY = 'pbms_auth_token';
 
 interface LoginResponse {
   token: string;
@@ -16,13 +14,13 @@ export const authService = {
     try {
       await apiClient.post('/auth/logout');
     } finally {
-      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(AUTH_TOKEN_KEY);
     }
   },
 
   saveToken: (token: string) => {
-    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(AUTH_TOKEN_KEY, token);
   },
 
-  hasToken: () => Boolean(localStorage.getItem(TOKEN_KEY)),
+  hasToken: () => Boolean(localStorage.getItem(AUTH_TOKEN_KEY)),
 };

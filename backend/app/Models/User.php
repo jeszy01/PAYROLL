@@ -10,6 +10,18 @@ class User extends Authenticatable
 {
     use HasApiTokens, Notifiable;
 
+    public const ROLE_ADMIN = 'admin';
+    public const ROLE_HR_STAFF = 'hr_staff';
+
+    /**
+     * The complete list of valid roles. There are exactly two roles in
+     * this system — nothing else may be created or assigned.
+     */
+    public const ROLES = [
+        self::ROLE_ADMIN,
+        self::ROLE_HR_STAFF,
+    ];
+
     protected $fillable = [
         'name',
         'email',
@@ -28,5 +40,15 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === self::ROLE_ADMIN;
+    }
+
+    public function isHrStaff(): bool
+    {
+        return $this->role === self::ROLE_HR_STAFF;
     }
 }

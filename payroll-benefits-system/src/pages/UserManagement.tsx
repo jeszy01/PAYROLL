@@ -9,7 +9,7 @@ import { TextField } from '../components/common/FormField';
 import { useApiResource } from '../hooks/useApiResource';
 import { useCurrentUser } from '../hooks/useCurrentUser';
 import { userService } from '../services/user.service';
-import type { SystemUser } from '../types';
+import { USER_ROLES, roleLabel, type SystemUser, type UserRole } from '../types';
 import { formatDate } from '../utils/format';
 
 function UserFormModal({
@@ -23,12 +23,12 @@ function UserFormModal({
   initial?: Partial<SystemUser>;
   requirePassword: boolean;
   onClose: () => void;
-  onSubmit: (data: { name: string; email: string; role: string; password?: string }) => Promise<void>;
+  onSubmit: (data: { name: string; email: string; role: UserRole; password?: string }) => Promise<void>;
 }) {
   const [form, setForm] = useState({
     name: initial?.fullName ?? '',
     email: initial?.email ?? '',
-    role: initial?.role ?? 'HR Administrator',
+    role: (initial?.role ?? 'hr_staff') as UserRole,
     password: '',
   });
   const [submitting, setSubmitting] = useState(false);
@@ -69,13 +69,21 @@ function UserFormModal({
           value={form.email}
           onChange={(e) => setForm({ ...form, email: e.target.value })}
         />
-        <TextField
-          label="Role"
-          placeholder="e.g. HR Administrator"
-          required
-          value={form.role}
-          onChange={(e) => setForm({ ...form, role: e.target.value })}
-        />
+        <label className="block text-sm">
+          <span className="mb-1.5 block font-medium text-ink-900">Role</span>
+          <select
+            required
+            value={form.role}
+            onChange={(e) => setForm({ ...form, role: e.target.value as UserRole })}
+            className="w-full rounded-lg border border-navy-100 bg-white px-3 py-2 text-sm text-ink-900 outline-none transition focus:border-teal-500"
+          >
+            {USER_ROLES.map(({ value, label }) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
         <TextField
           label={requirePassword ? 'Password' : 'New password (leave blank to keep current)'}
           type="password"
@@ -125,7 +133,7 @@ export function UserManagement() {
   const columns: Column<SystemUser>[] = [
     { header: 'Name', render: (r) => <span className="font-medium">{r.fullName}</span> },
     { header: 'Email', render: (r) => r.email },
-    { header: 'Role', render: (r) => r.role },
+    { header: 'Role', render: (r) => roleLabel(r.role) },
     { header: 'Created', render: (r) => formatDate(r.createdAt) },
     {
       header: '',

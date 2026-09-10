@@ -8,6 +8,7 @@ import { CompensationPlanning } from './pages/CompensationPlanning';
 import { ClaimsReimbursement } from './pages/ClaimsReimbursement';
 import { HmoBenefits } from './pages/HmoBenefits';
 import { Login } from './pages/Login';
+<<<<<<< Updated upstream
 import { authService } from './services/auth.service';
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -16,12 +17,16 @@ function RequireAuth({ children }: { children: ReactNode }) {
   }
   return <>{children}</>;
 }
+=======
+import { RequireAuth, RequireRole } from './components/auth/RequireAuth';
+>>>>>>> Stashed changes
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+<<<<<<< Updated upstream
         <Route
           path="/"
           element={
@@ -79,6 +84,25 @@ function App() {
           }
         />
         <Route path="*" element={<Navigate to="/" replace />} />
+=======
+        <Route element={<RequireAuth />}>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/employees" element={<Employees />} />
+          <Route path="/payroll" element={<PayrollManagement />} />
+          <Route path="/compensation" element={<CompensationPlanning />} />
+          <Route path="/claims" element={<ClaimsReimbursement />} />
+          <Route path="/benefits" element={<HmoBenefits />} />
+          <Route path="/analytics" element={<HrAnalytics />} />
+          <Route
+            path="/users"
+            element={
+              <RequireRole role="admin">
+                <UserManagement />
+              </RequireRole>
+            }
+          />
+        </Route>
+>>>>>>> Stashed changes
       </Routes>
     </BrowserRouter>
   );

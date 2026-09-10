@@ -70,14 +70,16 @@ export function AccountMenu() {
           </div>
 
           <div className="py-1">
-            <Link
-              to="/users"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink-900 transition hover:bg-sand-50"
-            >
-              <UserCog size={16} className="text-ink-500" />
-              User &amp; account settings
-            </Link>
+            {user.role === 'admin' && (
+              <Link
+                to="/users"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink-900 transition hover:bg-sand-50"
+              >
+                <UserCog size={16} className="text-ink-500" />
+                User &amp; account settings
+              </Link>
+            )}
           </div>
 
           <div className="border-t border-line py-1">

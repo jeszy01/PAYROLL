@@ -54,7 +54,7 @@ There's no seeded user. Create one via Tinker:
 
 ```bash
 php artisan tinker
->>> \App\Models\User::create(['name' => 'HR Admin', 'email' => 'admin@example.com', 'password' => bcrypt('changeme'), 'role' => 'HR Administrator']);
+>>> \App\Models\User::create(['name' => 'HR Admin', 'email' => 'admin@example.com', 'password' => bcrypt('changeme'), 'role' => 'admin']);
 ```
 
 Then log in from the frontend (or via `POST /api/auth/login`) to get a

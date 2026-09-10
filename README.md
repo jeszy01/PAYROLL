@@ -66,7 +66,7 @@ Once it's up:
    ```
    Then paste:
    ```php
-   \App\Models\User::create(['name' => 'HR Admin', 'email' => 'admin@example.com', 'password' => bcrypt('changeme'), 'role' => 'HR Administrator']);
+    \App\Models\User::create(['name' => 'HR Admin', 'email' => 'admin@example.com', 'password' => bcrypt('changeme'), 'role' => 'admin']);
    ```
    Type `exit` to leave Tinker. Log in at `http://localhost:5173` with
    `admin@example.com` / `changeme`.
