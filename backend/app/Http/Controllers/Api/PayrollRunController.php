@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PayrollRunResource;
-use App\Models\AttendanceSummary;
+use App\Services\AttendanceCalculator;
 use App\Models\Employee;
 use App\Models\PayrollAnomaly;
 use App\Models\PayrollRun;
@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\DB;
 
 class PayrollRunController extends Controller
 {
-    public function __construct(private PayslipMailer $mailer, private PayrollAnomalyDetector $anomalyDetector)
+    public function __construct(private PayslipMailer $mailer, private PayrollAnomalyDetector $anomalyDetector, private AttendanceCalculator $attendanceCalculator)
     {
     }
 
@@ -140,11 +140,11 @@ class PayrollRunController extends Controller
         // 10-25), so this can't be a hardcoded constant.
         $workingDaysPerPeriod = $payrollRun->workingDays();
 
-        $summaries = AttendanceSummary::where('payroll_run_id', $payrollRun->id)->get();
+        $summaries = $this->attendanceCalculator->forPayrollRun($payrollRun)->values();
 
         if ($summaries->isEmpty()) {
             return response()->json([
-                'message' => 'Enter attendance summaries for at least one employee before computing.',
+                'message' => 'No active employees to compute payroll for.',
             ], 422);
         }
 

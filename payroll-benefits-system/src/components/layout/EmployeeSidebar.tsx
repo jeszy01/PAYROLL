@@ -1,14 +1,12 @@
-import { Link, NavLink } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import {
   LayoutGrid,
-  Clock,
   Banknote,
   Receipt,
   HeartPulse,
   UserCircle,
   ChevronsLeft,
   ChevronsRight,
-  ArrowLeftRight,
 } from 'lucide-react';
 import { useState } from 'react';
 import logo from '../../assets/archon-nell-logo.png';
@@ -26,7 +24,6 @@ function initialsOf(fullName?: string) {
 
 const NAV_ITEMS = [
   { to: '/ess', label: 'Dashboard', icon: LayoutGrid, end: true },
-  { to: '/ess/attendance', label: 'Attendance', icon: Clock },
   { to: '/ess/payslips', label: 'My Payslips', icon: Banknote },
   { to: '/ess/claims', label: 'My Claims', icon: Receipt },
   { to: '/ess/benefits', label: 'My Benefits', icon: HeartPulse },
@@ -77,17 +74,6 @@ export function EmployeeSidebar() {
       </nav>
 
       <div className="border-t border-white/20 p-3">
-        <Link
-          to="/"
-          title={collapsed ? 'Switch to Admin View' : undefined}
-          className={`mb-2 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/75 transition hover:bg-white/10 hover:text-white ${
-            collapsed ? 'justify-center' : ''
-          }`}
-        >
-          <ArrowLeftRight size={18} strokeWidth={1.75} className="shrink-0" />
-          {!collapsed && <span className="truncate">Switch to Admin View</span>}
-        </Link>
-
         {!collapsed ? (
           <div className="flex items-center gap-2">
             <div className="flex min-w-0 flex-1 items-center gap-3 px-1 py-1">

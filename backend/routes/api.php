@@ -55,7 +55,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/payroll/runs', [PayrollRunController::class, 'store']);
     Route::get('/payroll/runs/{payrollRun}', [PayrollRunController::class, 'show']);
     Route::get('/payroll/runs/{payrollRun}/attendance', [AttendanceSummaryController::class, 'indexForRun']);
-    Route::post('/payroll/runs/{payrollRun}/attendance', [AttendanceSummaryController::class, 'upsert']);
     Route::post('/payroll/runs/{payrollRun}/compute', [PayrollRunController::class, 'compute']);
     Route::post('/payroll/runs/{payrollRun}/approve', [PayrollRunController::class, 'approve'])->middleware('role:admin');
     Route::post('/payroll/runs/{payrollRun}/release', [PayrollRunController::class, 'release'])->middleware('role:admin');

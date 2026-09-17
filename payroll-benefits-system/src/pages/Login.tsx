@@ -3,6 +3,7 @@ import { LockKeyhole, Eye, EyeOff } from 'lucide-react';
 import { authService } from '../services/auth.service';
 import { ApiError } from '../services/apiClient';
 import logo from '../assets/archon-nell-logo.png';
+import { apiClient } from '../services/apiClient';
 
 export function Login() {
   const [email, setEmail] = useState('');
@@ -16,9 +17,11 @@ export function Login() {
     setSubmitting(true);
     setError(null);
     try {
-      const { token } = await authService.login(email, password);
+          const { token } = await authService.login(email, password);
       authService.saveToken(token);
-      window.location.href = '/';
+
+      const me = await apiClient.get<{ role: string }>('/auth/me');
+      window.location.href = me.role === 'employee' ? '/ess' : '/';
     } catch (err) {
       if (err instanceof ApiError && err.status === 422) {
         setError('Incorrect email or password.');

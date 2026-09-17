@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogOut, UserCog, ChevronDown, ArrowLeftRight } from 'lucide-react';
+import { LogOut, UserCog, ChevronDown } from 'lucide-react';
 import { useCurrentUser, isAdmin } from '../../hooks/useCurrentUser';
 import { authService } from '../../services/auth.service';
 
@@ -72,16 +72,6 @@ export function AccountMenu() {
           </div>
 
           <div className="py-1">
-            {user.employeeId && (
-              <Link
-                to="/ess"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink-900 transition hover:bg-sand-50"
-              >
-                <ArrowLeftRight size={16} className="text-ink-500" />
-                Switch to Employee View
-              </Link>
-            )}
             {isAdmin(user) && (
               <Link
                 to="/users"

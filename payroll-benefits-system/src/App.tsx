@@ -43,6 +43,15 @@ function RequireEmployee({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+function RequireStaff({ children }: { children: ReactNode }) {
+  const { data: user, loading } = useCurrentUser();
+  if (loading) return null;
+  if (!user || user.role === 'employee') {
+    return <Navigate to="/login" replace />;
+  }
+  return <>{children}</>;
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -52,7 +61,9 @@ function App() {
           path="/"
           element={
             <RequireAuth>
-              <Dashboard />
+              <RequireStaff>
+                <Dashboard />
+              </RequireStaff>
             </RequireAuth>
           }
         />
@@ -60,7 +71,9 @@ function App() {
           path="/employees"
           element={
             <RequireAuth>
-              <Employees />
+              <RequireStaff>
+                <Employees />
+              </RequireStaff>
             </RequireAuth>
           }
         />
@@ -68,9 +81,11 @@ function App() {
           path="/users"
           element={
             <RequireAuth>
-              <RequireAdmin>
-                <UserManagement />
-              </RequireAdmin>
+              <RequireStaff>
+                <RequireAdmin>
+                  <UserManagement />
+                </RequireAdmin>
+              </RequireStaff>
             </RequireAuth>
           }
         />
@@ -78,7 +93,9 @@ function App() {
           path="/payroll"
           element={
             <RequireAuth>
-              <PayrollManagement />
+              <RequireStaff>
+                <PayrollManagement />
+              </RequireStaff>
             </RequireAuth>
           }
         />
@@ -86,7 +103,9 @@ function App() {
           path="/compensation"
           element={
             <RequireAuth>
-              <CompensationPlanning />
+              <RequireStaff>
+                <CompensationPlanning />
+              </RequireStaff>
             </RequireAuth>
           }
         />
@@ -94,7 +113,9 @@ function App() {
           path="/claims"
           element={
             <RequireAuth>
-              <ClaimsReimbursement />
+              <RequireStaff>
+                <ClaimsReimbursement />
+              </RequireStaff>
             </RequireAuth>
           }
         />
@@ -102,7 +123,9 @@ function App() {
           path="/benefits"
           element={
             <RequireAuth>
-              <HmoBenefits />
+              <RequireStaff>
+                <HmoBenefits />
+              </RequireStaff>
             </RequireAuth>
           }
         />
