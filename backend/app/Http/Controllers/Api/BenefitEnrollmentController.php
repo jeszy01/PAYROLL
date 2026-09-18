@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\ResolvesOwnEmployee;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\BenefitEnrollmentResource;
 use App\Models\BenefitEnrollment;
@@ -10,6 +11,17 @@ use Illuminate\Http\Request;
 
 class BenefitEnrollmentController extends Controller
 {
+    use ResolvesOwnEmployee;
+
+    public function mine(Request $request)
+    {
+        $employee = $this->ownEmployee($request);
+
+        return BenefitEnrollmentResource::collection(
+            BenefitEnrollment::with('dependents')->where('employee_id', $employee->id)->get()
+        );
+    }
+
     public function index()
     {
         return BenefitEnrollmentResource::collection(
@@ -37,6 +49,25 @@ class BenefitEnrollmentController extends Controller
         ]);
 
         return new BenefitEnrollmentResource($enrollment->load('dependents'));
+    }
+
+     public function showViaInternalApi(BenefitEnrollment $benefitEnrollment)
+    {
+        $response = \Illuminate\Support\Facades\Http::withHeaders([
+            'X-Internal-Api-Key' => config('services.internal_api_key'),
+       ])->timeout(5)->retry(2, 200)->get(config('app.url').'/api/internal/employees/'.$benefitEnrollment->employee_id);
+
+        if (! $response->successful()) {
+            return response()->json([
+                'message' => 'Employee service unavailable.',
+                'status' => $response->status(),
+            ], 502);
+        }
+
+        return response()->json([
+            'enrollment' => new BenefitEnrollmentResource($benefitEnrollment->load('dependents')),
+            'employee_via_internal_api' => $response->json(),
+        ]);
     }
 
     public function update(Request $request, BenefitEnrollment $benefitEnrollment)

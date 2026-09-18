@@ -19,24 +19,24 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);
 
+        $middleware->redirectGuestsTo(fn () => null);
+
         $middleware->alias([
             'role' => \App\Http\Middleware\EnsureUserHasRole::class,
+            'ess.verified' => \App\Http\Middleware\EnsureEssVerified::class,
+            'internal.key' => \App\Http\Middleware\VerifyInternalApiKey::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        $exceptions->shouldRenderJsonWhen(function ($request, $e) {
-            return $request->is('api/*') || $request->expectsJson();
-        });
-
-        // This is an API-only app: there is no named "login" route.
-        // The framework's default AuthenticationException handling
-        // redirects non-JSON clients to route('login'), which throws
-        // "Route [login] not defined" and surfaces as a 500. Always
-        // answer unauthenticated API requests with 401 JSON instead.
-        // Non-API requests fall through to the default handler.
-        $exceptions->render(function (AuthenticationException $e, Request $request) {
-            if ($request->is('api/*')) {
-                return response()->json(['message' => $e->getMessage()], 401);
+        $exceptions->render(function (AuthenticationException $e, $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return response()->json(['message' => 'Unauthenticated.'], 401);
             }
         });
-    })->create();
+        $exceptions->render(function (AuthenticationException $e, $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return response()->json(['message' => 'Unauthenticated.'], 401);
+            }
+        });
+    })
+    ->create();

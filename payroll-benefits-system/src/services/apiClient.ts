@@ -41,6 +41,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
@@ -57,6 +58,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     } catch {
       // response had no JSON body
     }
+
     throw new ApiError(message, response.status);
   }
 

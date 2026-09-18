@@ -9,9 +9,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Payslip extends Model
 {
     use HasUuids;
+    protected $connection = 'payroll';
 
     protected $fillable = [
-        'payroll_run_id', 'employee_id', 'employee_name', 'department',
+        'payroll_run_id', 'employee_id', 'employee_number', 'employee_name', 'department',
         'basic_pay', 'tax_refund', 'sl_cash_conversion', 'overtime_pay',
         'late_undertime_absence_deduction', 'total_salary',
         'sss_contribution', 'philhealth_contribution', 'pagibig_contribution', 'taxable_salary',

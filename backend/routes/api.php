@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AnalyticsController;
+use App\Http\Controllers\Api\AttendanceRecordController;
 use App\Http\Controllers\Api\AttendanceSummaryController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BenefitEnrollmentController;
@@ -8,137 +9,101 @@ use App\Http\Controllers\Api\BenefitPlanController;
 use App\Http\Controllers\Api\ClaimController;
 use App\Http\Controllers\Api\CompensationAdjustmentController;
 use App\Http\Controllers\Api\EmployeeController;
+use App\Http\Controllers\Api\EssTwoFactorController;
+use App\Http\Controllers\Api\PayrollAnomalyController;
 use App\Http\Controllers\Api\PayrollRunController;
 use App\Http\Controllers\Api\PayslipController;
 use App\Http\Controllers\Api\SalaryGradeController;
 use App\Http\Controllers\Api\UserController;
-use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
 // ---------- Auth ----------
-<<<<<<< Updated upstream
 // Rate-limited so login can't be brute-forced.
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
 
 // Everything below requires a valid Sanctum access token — the frontend is
 // entirely behind a login wall, so no employee, payroll, claims, compensation,
 // or benefits data should ever be reachable anonymously.
-=======
-Route::post('/auth/login', [AuthController::class, 'login']);
-
->>>>>>> Stashed changes
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
 
-<<<<<<< Updated upstream
-    // ---------- User Management (admin) ----------
-    Route::get('/users', [UserController::class, 'index']);
-    Route::post('/users', [UserController::class, 'store']);
-    Route::patch('/users/{user}', [UserController::class, 'update']);
-    Route::delete('/users/{user}', [UserController::class, 'destroy']);
-
-    // ---------- Employees ----------
-    Route::get('/employees', [EmployeeController::class, 'index']);
-    Route::post('/employees', [EmployeeController::class, 'store']);
-    Route::get('/employees/{employee}', [EmployeeController::class, 'show']);
-    Route::patch('/employees/{employee}', [EmployeeController::class, 'update']);
-    Route::delete('/employees/{employee}', [EmployeeController::class, 'destroy']);
-
-    // ---------- Payroll Management ----------
-    Route::get('/payroll/runs', [PayrollRunController::class, 'index']);
-    Route::post('/payroll/runs', [PayrollRunController::class, 'store']);
-    Route::get('/payroll/runs/{payrollRun}', [PayrollRunController::class, 'show']);
-    Route::get('/payroll/runs/{payrollRun}/attendance', [AttendanceSummaryController::class, 'indexForRun']);
-    Route::post('/payroll/runs/{payrollRun}/attendance', [AttendanceSummaryController::class, 'upsert']);
-    Route::post('/payroll/runs/{payrollRun}/compute', [PayrollRunController::class, 'compute']);
-    Route::post('/payroll/runs/{payrollRun}/approve', [PayrollRunController::class, 'approve']);
-    Route::post('/payroll/runs/{payrollRun}/release', [PayrollRunController::class, 'release']);
-    Route::post('/payroll/runs/{payrollRun}/archive', [PayrollRunController::class, 'archive']);
-    Route::post('/payroll/runs/{payrollRun}/unarchive', [PayrollRunController::class, 'unarchive']);
-    Route::delete('/payroll/runs/{payrollRun}', [PayrollRunController::class, 'destroy']);
-    Route::get('/payroll/runs/{payrollRun}/payslips', [PayslipController::class, 'indexForRun']);
-    Route::post('/payroll/runs/{payrollRun}/payslips/send-bulk', [PayslipController::class, 'sendBulk']);
-    Route::get('/payroll/payslips/{payslip}', [PayslipController::class, 'show']);
-    Route::post('/payroll/payslips/{payslip}/send', [PayslipController::class, 'send']);
-
-    // ---------- Compensation Planning ----------
-    Route::get('/compensation/salary-grades', [SalaryGradeController::class, 'index']);
-    Route::post('/compensation/salary-grades', [SalaryGradeController::class, 'store']);
-    Route::patch('/compensation/salary-grades/{salaryGrade}', [SalaryGradeController::class, 'update']);
-    Route::delete('/compensation/salary-grades/{salaryGrade}', [SalaryGradeController::class, 'destroy']);
-
-    Route::get('/compensation/adjustments', [CompensationAdjustmentController::class, 'index']);
-    Route::post('/compensation/adjustments', [CompensationAdjustmentController::class, 'store']);
-    Route::patch('/compensation/adjustments/{compensationAdjustment}', [CompensationAdjustmentController::class, 'update']);
-
-    // ---------- Claims & Reimbursement ----------
-    Route::get('/claims', [ClaimController::class, 'index']);
-    Route::post('/claims', [ClaimController::class, 'store']);
-    Route::get('/claims/{claim}', [ClaimController::class, 'show']);
-    Route::patch('/claims/{claim}', [ClaimController::class, 'update']);
-    Route::post('/claims/{claim}/reimburse', [ClaimController::class, 'reimburse']);
-
-    // ---------- HMO & Benefits Administration ----------
-    Route::get('/benefits/plans', [BenefitPlanController::class, 'index']);
-    Route::post('/benefits/plans', [BenefitPlanController::class, 'store']);
-    Route::patch('/benefits/plans/{benefitPlan}', [BenefitPlanController::class, 'update']);
-
-    Route::get('/benefits/enrollments', [BenefitEnrollmentController::class, 'index']);
-    Route::post('/benefits/enrollments', [BenefitEnrollmentController::class, 'store']);
-    Route::patch('/benefits/enrollments/{benefitEnrollment}', [BenefitEnrollmentController::class, 'update']);
-
-    // ---------- HR Analytics ----------
-    Route::get('/analytics/summary', [AnalyticsController::class, 'summary']);
-=======
     // ---------- User Management (admin only) ----------
-    Route::middleware('role:'.User::ROLE_ADMIN)->group(function () {
+    // Creating/editing/deleting login accounts and assigning roles is a
+    // system-administration function, not a day-to-day HR task.
+    Route::middleware('role:admin')->group(function () {
         Route::get('/users', [UserController::class, 'index']);
         Route::post('/users', [UserController::class, 'store']);
+        Route::get('/users/{user}/via-internal-api', [UserController::class, 'showViaInternalApi']);
         Route::patch('/users/{user}', [UserController::class, 'update']);
         Route::delete('/users/{user}', [UserController::class, 'destroy']);
     });
 
-    // ---------- Business modules (admin + HR staff) ----------
-    Route::middleware('role:'.User::ROLE_ADMIN.','.User::ROLE_HR_STAFF)->group(function () {
+    // ---------- Internal API (service-to-service) ----------
+    // These swap out Sanctum for the internal API key, so they stay
+    // outside the role-gated groups below.
+    Route::get('/internal/employees/{employee}', [EmployeeController::class, 'show'])->middleware('internal.key')->withoutMiddleware('auth:sanctum');
+    Route::get('/internal/payroll-runs/{payrollRun}', [PayrollRunController::class, 'show'])->middleware('internal.key')->withoutMiddleware('auth:sanctum');
+
+    // ---------- Business modules (admin + hr_staff) ----------
+    // Admin and HR staff manage the domain day-to-day; permanent removal
+    // and final approval/release actions stay admin-only.
+    Route::middleware('role:admin,hr_staff')->group(function () {
         // ---------- Employees ----------
         Route::get('/employees', [EmployeeController::class, 'index']);
         Route::post('/employees', [EmployeeController::class, 'store']);
         Route::get('/employees/{employee}', [EmployeeController::class, 'show']);
         Route::patch('/employees/{employee}', [EmployeeController::class, 'update']);
-        Route::delete('/employees/{employee}', [EmployeeController::class, 'destroy']);
+        Route::delete('/employees/{employee}', [EmployeeController::class, 'destroy'])->middleware('role:admin');
 
         // ---------- Payroll Management ----------
+        // HR prepares and computes runs; final approval/release (which triggers
+        // payslip emailing) and destructive actions stay with Admin.
         Route::get('/payroll/runs', [PayrollRunController::class, 'index']);
         Route::post('/payroll/runs', [PayrollRunController::class, 'store']);
         Route::get('/payroll/runs/{payrollRun}', [PayrollRunController::class, 'show']);
+        Route::get('/attendance-records/{attendanceRecord}/via-internal-api', [AttendanceRecordController::class, 'showViaInternalApi']);
         Route::get('/payroll/runs/{payrollRun}/attendance', [AttendanceSummaryController::class, 'indexForRun']);
-        Route::post('/payroll/runs/{payrollRun}/attendance', [AttendanceSummaryController::class, 'upsert']);
         Route::post('/payroll/runs/{payrollRun}/compute', [PayrollRunController::class, 'compute']);
-        Route::post('/payroll/runs/{payrollRun}/approve', [PayrollRunController::class, 'approve']);
-        Route::post('/payroll/runs/{payrollRun}/release', [PayrollRunController::class, 'release']);
-        Route::post('/payroll/runs/{payrollRun}/archive', [PayrollRunController::class, 'archive']);
-        Route::post('/payroll/runs/{payrollRun}/unarchive', [PayrollRunController::class, 'unarchive']);
-        Route::delete('/payroll/runs/{payrollRun}', [PayrollRunController::class, 'destroy']);
+        Route::post('/payroll/runs/{payrollRun}/approve', [PayrollRunController::class, 'approve'])->middleware('role:admin');
+        Route::post('/payroll/runs/{payrollRun}/release', [PayrollRunController::class, 'release'])->middleware('role:admin');
+        Route::post('/payroll/runs/{payrollRun}/archive', [PayrollRunController::class, 'archive'])->middleware('role:admin');
+        Route::post('/payroll/runs/{payrollRun}/unarchive', [PayrollRunController::class, 'unarchive'])->middleware('role:admin');
+        Route::delete('/payroll/runs/{payrollRun}', [PayrollRunController::class, 'destroy'])->middleware('role:admin');
         Route::get('/payroll/runs/{payrollRun}/payslips', [PayslipController::class, 'indexForRun']);
         Route::post('/payroll/runs/{payrollRun}/payslips/send-bulk', [PayslipController::class, 'sendBulk']);
         Route::get('/payroll/payslips/{payslip}', [PayslipController::class, 'show']);
+        Route::get('/payroll/payslips/{payslip}/via-internal-api', [PayslipController::class, 'showViaInternalApi']);
         Route::post('/payroll/payslips/{payslip}/send', [PayslipController::class, 'send']);
 
+        // ---------- AI-Powered Payroll Anomaly Detection ----------
+        // Reviewing/rescanning is a QA step open to HR and Admin alike (same
+        // tier as compute()); only the run-level approve/release/delete
+        // actions above are admin-only.
+        Route::get('/payroll/runs/{payrollRun}/anomalies', [PayrollAnomalyController::class, 'index']);
+        Route::post('/payroll/runs/{payrollRun}/anomalies/rescan', [PayrollAnomalyController::class, 'rescan']);
+        Route::patch('/payroll/runs/{payrollRun}/anomalies/{anomaly}', [PayrollAnomalyController::class, 'update']);
+
         // ---------- Compensation Planning ----------
+        // HR can view grades and request adjustments; defining salary
+        // structures and deciding (approving/rejecting) adjustments is admin-only.
         Route::get('/compensation/salary-grades', [SalaryGradeController::class, 'index']);
-        Route::post('/compensation/salary-grades', [SalaryGradeController::class, 'store']);
-        Route::patch('/compensation/salary-grades/{salaryGrade}', [SalaryGradeController::class, 'update']);
-        Route::delete('/compensation/salary-grades/{salaryGrade}', [SalaryGradeController::class, 'destroy']);
+        Route::middleware('role:admin')->group(function () {
+            Route::post('/compensation/salary-grades', [SalaryGradeController::class, 'store']);
+            Route::patch('/compensation/salary-grades/{salaryGrade}', [SalaryGradeController::class, 'update']);
+            Route::delete('/compensation/salary-grades/{salaryGrade}', [SalaryGradeController::class, 'destroy']);
+        });
 
         Route::get('/compensation/adjustments', [CompensationAdjustmentController::class, 'index']);
+        Route::get('/compensation/adjustments/{compensationAdjustment}/via-internal-api', [CompensationAdjustmentController::class, 'showViaInternalApi']);
         Route::post('/compensation/adjustments', [CompensationAdjustmentController::class, 'store']);
-        Route::patch('/compensation/adjustments/{compensationAdjustment}', [CompensationAdjustmentController::class, 'update']);
+        Route::patch('/compensation/adjustments/{compensationAdjustment}', [CompensationAdjustmentController::class, 'update'])->middleware('role:admin');
 
         // ---------- Claims & Reimbursement ----------
         Route::get('/claims', [ClaimController::class, 'index']);
         Route::post('/claims', [ClaimController::class, 'store']);
         Route::get('/claims/{claim}', [ClaimController::class, 'show']);
+        Route::get('/claims/{claim}/via-internal-api', [ClaimController::class, 'showViaInternalApi']);
         Route::patch('/claims/{claim}', [ClaimController::class, 'update']);
         Route::post('/claims/{claim}/reimburse', [ClaimController::class, 'reimburse']);
 
@@ -148,11 +113,32 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/benefits/plans/{benefitPlan}', [BenefitPlanController::class, 'update']);
 
         Route::get('/benefits/enrollments', [BenefitEnrollmentController::class, 'index']);
+        Route::get('/benefits/enrollments/{benefitEnrollment}/via-internal-api', [BenefitEnrollmentController::class, 'showViaInternalApi']);
         Route::post('/benefits/enrollments', [BenefitEnrollmentController::class, 'store']);
         Route::patch('/benefits/enrollments/{benefitEnrollment}', [BenefitEnrollmentController::class, 'update']);
 
         // ---------- HR Analytics ----------
         Route::get('/analytics/summary', [AnalyticsController::class, 'summary']);
     });
->>>>>>> Stashed changes
+
+    // ---------- Employee Self-Service ----------
+    // 2FA step-up: check/request/verify are reachable pre-verification
+    // (that's the whole point); everything else under /me is gated behind
+    // having verified this session, regardless of the caller's role.
+    Route::get('/me/2fa/status', [EssTwoFactorController::class, 'status']);
+    Route::post('/me/2fa/send', [EssTwoFactorController::class, 'send'])->middleware('throttle:3,1');
+    Route::post('/me/2fa/verify', [EssTwoFactorController::class, 'verify'])->middleware('throttle:10,1');
+
+    Route::middleware('ess.verified')->group(function () {
+        Route::get('/me/profile', [EmployeeController::class, 'me']);
+        Route::patch('/me/profile', [EmployeeController::class, 'updateMe']);
+        Route::get('/me/payslips', [PayslipController::class, 'mine']);
+        Route::get('/me/claims', [ClaimController::class, 'mine']);
+        Route::post('/me/claims', [ClaimController::class, 'storeMine']);
+        Route::get('/me/benefits', [BenefitEnrollmentController::class, 'mine']);
+        Route::get('/me/attendance/today', [AttendanceRecordController::class, 'today']);
+        Route::post('/me/attendance/clock-in', [AttendanceRecordController::class, 'clockIn']);
+        Route::post('/me/attendance/clock-out', [AttendanceRecordController::class, 'clockOut']);
+        Route::get('/me/attendance/history', [AttendanceRecordController::class, 'history']);
+    });
 });

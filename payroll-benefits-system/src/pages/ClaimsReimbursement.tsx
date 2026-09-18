@@ -11,8 +11,17 @@ import { TextField, SelectField, TextAreaField } from '../components/common/Form
 import { EmployeePicker } from '../components/common/EmployeePicker';
 import { useApiResource } from '../hooks/useApiResource';
 import { claimsService } from '../services/claims.service';
+import { claimPolicyHint } from '../config/claimPolicyLimits';
 import type { Claim, ClaimType } from '../types';
 import { formatCurrency, formatDate } from '../utils/format';
+import { statusLabel } from '../utils/statusLabels';
+
+// "submitted" and "under_review" both resolve to this same canonical
+// label (see utils/statusLabels) — pulling it from there once here keeps
+// the stat card and filter option in sync with the row badge instead of
+// each hardcoding their own copy of the string.
+const PENDING_APPROVAL_LABEL = statusLabel('submitted');
+const PENDING_APPROVAL_FILTER = 'pending_approval';
 
 const CLAIM_TYPE_LABEL: Record<ClaimType, string> = {
   transportation: 'Transportation',
@@ -81,18 +90,25 @@ function NewClaimModal({ onClose, onCreated }: { onClose: () => void; onCreated:
             value={form.department}
             onChange={(e) => setForm({ ...form, department: e.target.value })}
           />
-          <SelectField
-            label="Claim type"
-            required
-            value={form.claimType}
-            onChange={(e) => setForm({ ...form, claimType: e.target.value as ClaimType })}
-          >
-            {Object.entries(CLAIM_TYPE_LABEL).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </SelectField>
+          <div>
+            <SelectField
+              label="Claim type"
+              required
+              value={form.claimType}
+              onChange={(e) => setForm({ ...form, claimType: e.target.value as ClaimType })}
+            >
+              {Object.entries(CLAIM_TYPE_LABEL).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </SelectField>
+            {claimPolicyHint(form.claimType, CLAIM_TYPE_LABEL[form.claimType]) && (
+              <p className="mt-1.5 text-xs text-ink-500">
+                {claimPolicyHint(form.claimType, CLAIM_TYPE_LABEL[form.claimType])}
+              </p>
+            )}
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <TextField
@@ -148,7 +164,11 @@ export function ClaimsReimbursement() {
     const q = search.trim().toLowerCase();
     return (data ?? []).filter((c) => {
       if (typeFilter && c.claimType !== typeFilter) return false;
-      if (statusFilter && c.status !== statusFilter) return false;
+      if (statusFilter === PENDING_APPROVAL_FILTER) {
+        if (c.status !== 'submitted' && c.status !== 'under_review') return false;
+      } else if (statusFilter && c.status !== statusFilter) {
+        return false;
+      }
       if (!q) return true;
       return c.id.toLowerCase().includes(q) || c.employeeName.toLowerCase().includes(q);
     });
@@ -264,7 +284,7 @@ export function ClaimsReimbursement() {
         />
         <StatCard
           icon={Hourglass}
-          label="Pending Approval"
+          label={PENDING_APPROVAL_LABEL}
           value={String(pending.length)}
           tone="clay"
           hint={formatCurrency(pendingVolume)}
@@ -317,8 +337,7 @@ export function ClaimsReimbursement() {
             className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink-900 outline-none focus:border-teal-500"
           >
             <option value="">All Status</option>
-            <option value="submitted">Submitted</option>
-            <option value="under_review">Under Review</option>
+            <option value={PENDING_APPROVAL_FILTER}>{PENDING_APPROVAL_LABEL}</option>
             <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
             <option value="reimbursed">Reimbursed</option>

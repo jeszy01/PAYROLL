@@ -36,6 +36,7 @@ export const payrollService = {
   listPayslips: (payrollRunId: string) =>
     apiClient.get<Payslip[]>(`/payroll/runs/${payrollRunId}/payslips`),
   getPayslip: (id: string) => apiClient.get<Payslip>(`/payroll/payslips/${id}`),
+  listMyPayslips: () => apiClient.get<Payslip[]>('/me/payslips'),
   sendPayslip: (id: string, channel: 'email' | 'sms') =>
     apiClient.post<{ payslipId: string; status: 'sent' | 'failed'; message: string }>(
       `/payroll/payslips/${id}/send`,

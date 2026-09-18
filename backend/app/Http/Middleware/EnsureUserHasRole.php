@@ -22,7 +22,7 @@ class EnsureUserHasRole
     {
         $user = $request->user();
 
-        if (! $user || ! in_array($user->role, $roles, true)) {
+        if (! $user || ! $user->hasRole(...$roles)) {
             return response()->json([
                 'message' => 'You do not have permission to perform this action.',
             ], 403);

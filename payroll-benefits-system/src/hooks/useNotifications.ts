@@ -2,6 +2,7 @@ import { useApiResource } from './useApiResource';
 import { payrollService } from '../services/payroll.service';
 import { claimsService } from '../services/claims.service';
 import { compensationService } from '../services/compensation.service';
+import { statusLabel } from '../utils/statusLabels';
 
 export interface NotificationItem {
   id: string;
@@ -24,7 +25,7 @@ async function loadNotifications(): Promise<NotificationItem[]> {
     .forEach((r) =>
       items.push({
         id: r.id,
-        title: `Payroll run "${r.cutoffLabel}" needs approval`,
+        title: `Payroll run "${r.cutoffLabel}" — ${statusLabel(r.status)}`,
         subtitle: 'Payroll Management',
         linkTo: '/payroll',
       })
@@ -35,7 +36,7 @@ async function loadNotifications(): Promise<NotificationItem[]> {
     .forEach((c) =>
       items.push({
         id: c.id,
-        title: `${c.employeeName}'s ${c.claimType} claim is pending review`,
+        title: `${c.employeeName}'s ${c.claimType} claim — ${statusLabel(c.status)}`,
         subtitle: 'Claims & Reimbursement',
         linkTo: '/claims',
       })

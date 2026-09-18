@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class AttendanceSummary extends Model
 {
     use HasUuids;
+       protected $connection = 'attendance';
 
     protected $fillable = [
         'payroll_run_id', 'employee_id', 'employee_name',

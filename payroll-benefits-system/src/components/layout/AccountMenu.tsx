@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LogOut, UserCog, ChevronDown } from 'lucide-react';
-import { useCurrentUser } from '../../hooks/useCurrentUser';
+import { useCurrentUser, isAdmin } from '../../hooks/useCurrentUser';
 import { authService } from '../../services/auth.service';
+
+const ROLE_LABEL = { admin: 'Admin', hr_staff: 'HR Staff', employee: 'Employee' } as const;
 
 export function AccountMenu() {
   const { data: user } = useCurrentUser();
@@ -57,7 +59,7 @@ export function AccountMenu() {
         </div>
         <div className="hidden text-left text-sm sm:block">
           <p className="font-semibold text-ink-900">{user.fullName}</p>
-          <p className="text-xs text-ink-500">{user.role}</p>
+          <p className="text-xs text-ink-500">{ROLE_LABEL[user.role]}</p>
         </div>
         <ChevronDown size={16} className={`hidden text-ink-500 transition sm:block ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -66,11 +68,11 @@ export function AccountMenu() {
         <div className="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
           <div className="border-b border-line px-4 py-3">
             <p className="truncate text-sm font-semibold text-ink-900">{user.fullName}</p>
-            <p className="truncate text-xs text-ink-500">{user.role}</p>
+            <p className="truncate text-xs text-ink-500">{ROLE_LABEL[user.role]}</p>
           </div>
 
           <div className="py-1">
-            {user.role === 'admin' && (
+{isAdmin(user) && (
               <Link
                 to="/users"
                 onClick={() => setOpen(false)}

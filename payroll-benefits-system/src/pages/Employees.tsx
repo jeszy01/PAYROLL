@@ -8,8 +8,9 @@ import { StatusBadge } from '../components/common/StatusBadge';
 import { Modal } from '../components/common/Modal';
 import { TextField, SelectField } from '../components/common/FormField';
 import { useApiResource } from '../hooks/useApiResource';
+import { useCurrentUser, isAdmin } from '../hooks/useCurrentUser';
 import { employeeService } from '../services/employee.service';
-import type { Employee, EmploymentStatus } from '../types';
+import type { Employee, EmploymentStatus, EmploymentType, CivilStatus } from '../types';
 import { formatCurrency, formatDate } from '../utils/format';
 
 const STATUS_LABEL: Record<EmploymentStatus, string> = {
@@ -17,6 +18,19 @@ const STATUS_LABEL: Record<EmploymentStatus, string> = {
   on_leave: 'On Leave',
   suspended: 'Suspended',
   separated: 'Separated',
+};
+
+const EMPLOYMENT_TYPE_LABEL: Record<EmploymentType, string> = {
+  regular: 'Regular',
+  probationary: 'Probationary',
+  contractual: 'Contractual',
+};
+
+const CIVIL_STATUS_LABEL: Record<CivilStatus, string> = {
+  single: 'Single',
+  married: 'Married',
+  widowed: 'Widowed',
+  separated: 'Legally Separated',
 };
 
 const AVATAR_COLORS = ['#2f5fdb', '#7c5cf5', '#1e7a4c', '#c97b5a', '#2f6b82', '#b3781a'];
@@ -31,10 +45,21 @@ function initials(first: string, last: string) {
   return `${first[0] ?? ''}${last[0] ?? ''}`.toUpperCase();
 }
 
+function pluralize(count: number, singular: string, plural = `${singular}s`) {
+  return count === 1 ? singular : plural;
+}
+
 function exportEmployeesCsv(rows: Employee[]) {
-  const header = ['Employee #', 'First name', 'Last name', 'Email', 'Department', 'Position', 'Status', 'Date hired', 'Base salary'];
+  const header = [
+    'Employee #', 'First name', 'Last name', 'Email', 'Department', 'Position', 'Status', 'Date hired', 'Base salary',
+    'Employment type', 'Civil status', 'SSS No.', 'PhilHealth No.', 'Pag-IBIG No.', 'TIN',
+  ];
   const lines = rows.map((r) =>
-    [r.employeeNumber, r.firstName, r.lastName, r.email, r.department, r.position, STATUS_LABEL[r.employmentStatus], r.dateHired, r.baseSalary]
+    [
+      r.employeeNumber, r.firstName, r.lastName, r.email, r.department, r.position, STATUS_LABEL[r.employmentStatus], r.dateHired, r.baseSalary,
+      EMPLOYMENT_TYPE_LABEL[r.employmentType], CIVIL_STATUS_LABEL[r.civilStatus],
+      r.sssNumber ?? '', r.philhealthNumber ?? '', r.pagibigNumber ?? '', r.tinNumber ?? '',
+    ]
       .map((v) => `"${String(v).replace(/"/g, '""')}"`)
       .join(',')
   );
@@ -68,6 +93,8 @@ function EmployeeFormModal({
     department: initial?.department ?? '',
     position: initial?.position ?? '',
     employmentStatus: initial?.employmentStatus ?? ('active' as EmploymentStatus),
+    employmentType: initial?.employmentType ?? ('regular' as EmploymentType),
+    civilStatus: initial?.civilStatus ?? ('single' as CivilStatus),
     dateHired: initial?.dateHired ?? '',
     baseSalary: initial ? String(initial.baseSalary) : '',
     loanDeductionPerCutoff: initial ? String(initial.loanDeductionPerCutoff) : '',
@@ -75,6 +102,12 @@ function EmployeeFormModal({
     riceSubsidyAllowance: initial ? String(initial.riceSubsidyAllowance) : '',
     sssLoanPerCutoff: initial ? String(initial.sssLoanPerCutoff) : '',
     hdmfLoanPerCutoff: initial ? String(initial.hdmfLoanPerCutoff) : '',
+    sssNumber: initial?.sssNumber ?? '',
+    philhealthNumber: initial?.philhealthNumber ?? '',
+    pagibigNumber: initial?.pagibigNumber ?? '',
+    tinNumber: initial?.tinNumber ?? '',
+    shiftStart: initial?.shiftStart ?? '09:00',
+    shiftEnd: initial?.shiftEnd ?? '18:00',
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,6 +126,8 @@ function EmployeeFormModal({
         department: form.department,
         position: form.position,
         employmentStatus: form.employmentStatus,
+        employmentType: form.employmentType,
+        civilStatus: form.civilStatus,
         dateHired: form.dateHired,
         baseSalary: Number(form.baseSalary),
         loanDeductionPerCutoff: Number(form.loanDeductionPerCutoff) || 0,
@@ -100,6 +135,12 @@ function EmployeeFormModal({
         riceSubsidyAllowance: Number(form.riceSubsidyAllowance) || 0,
         sssLoanPerCutoff: Number(form.sssLoanPerCutoff) || 0,
         hdmfLoanPerCutoff: Number(form.hdmfLoanPerCutoff) || 0,
+        sssNumber: form.sssNumber || null,
+        philhealthNumber: form.philhealthNumber || null,
+        pagibigNumber: form.pagibigNumber || null,
+        tinNumber: form.tinNumber || null,
+        shiftStart: form.shiftStart,
+        shiftEnd: form.shiftEnd,
       });
       onClose();
     } catch (err) {
@@ -194,6 +235,65 @@ function EmployeeFormModal({
             onChange={(e) => setForm({ ...form, baseSalary: e.target.value })}
           />
         </div>
+        <div className="grid grid-cols-2 gap-4">
+          <SelectField
+            label="Employment type"
+            required
+            value={form.employmentType}
+            onChange={(e) => setForm({ ...form, employmentType: e.target.value as EmploymentType })}
+          >
+            {Object.entries(EMPLOYMENT_TYPE_LABEL).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </SelectField>
+          <SelectField
+            label="Civil status"
+            required
+            value={form.civilStatus}
+            onChange={(e) => setForm({ ...form, civilStatus: e.target.value as CivilStatus })}
+          >
+            {Object.entries(CIVIL_STATUS_LABEL).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </SelectField>
+        </div>
+        <div className="border-t border-line pt-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-500">
+            Statutory &amp; government IDs
+          </p>
+          <div className="grid grid-cols-2 gap-4">
+            <TextField
+              label="SSS number"
+              placeholder="e.g. 34-1234567-8"
+              value={form.sssNumber}
+              onChange={(e) => setForm({ ...form, sssNumber: e.target.value })}
+            />
+            <TextField
+              label="PhilHealth number"
+              placeholder="e.g. 12-345678901-2"
+              value={form.philhealthNumber}
+              onChange={(e) => setForm({ ...form, philhealthNumber: e.target.value })}
+            />
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-4">
+            <TextField
+              label="Pag-IBIG number"
+              placeholder="e.g. 1234-5678-9012"
+              value={form.pagibigNumber}
+              onChange={(e) => setForm({ ...form, pagibigNumber: e.target.value })}
+            />
+            <TextField
+              label="TIN"
+              placeholder="e.g. 123-456-789-000"
+              value={form.tinNumber}
+              onChange={(e) => setForm({ ...form, tinNumber: e.target.value })}
+            />
+          </div>
+        </div>
         <div className="border-t border-line pt-4">
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-500">
             Recurring per-cutoff amounts
@@ -265,8 +365,14 @@ function ViewEmployeeModal({ employee, onClose }: { employee: Employee; onClose:
     ['Department', employee.department],
     ['Position', employee.position],
     ['Status', <StatusBadge status={employee.employmentStatus} />],
+    ['Employment type', EMPLOYMENT_TYPE_LABEL[employee.employmentType]],
+    ['Civil status', CIVIL_STATUS_LABEL[employee.civilStatus]],
     ['Date hired', formatDate(employee.dateHired)],
     ['Base salary', formatCurrency(employee.baseSalary)],
+    ['SSS number', employee.sssNumber || '—'],
+    ['PhilHealth number', employee.philhealthNumber || '—'],
+    ['Pag-IBIG number', employee.pagibigNumber || '—'],
+    ['TIN', employee.tinNumber || '—'],
     [
       'Transportation allowance',
       employee.transportationAllowance > 0 ? formatCurrency(employee.transportationAllowance) : '—',
@@ -309,6 +415,8 @@ function ViewEmployeeModal({ employee, onClose }: { employee: Employee; onClose:
 }
 
 export function Employees() {
+  const { data: currentUser } = useCurrentUser();
+  const canDelete = isAdmin(currentUser);
   const { data, loading, error, refetch } = useApiResource(() => employeeService.list(), []);
   const [showNew, setShowNew] = useState(false);
   const [viewingEmployee, setViewingEmployee] = useState<Employee | null>(null);
@@ -417,15 +525,17 @@ export function Employees() {
           >
             <Pencil size={16} />
           </button>
-          <button
-            disabled={busyId === r.id}
-            onClick={() => handleDelete(r)}
-            className="rounded-lg p-1.5 text-ink-500 transition hover:bg-bad-100 hover:text-bad-600 disabled:opacity-30"
-            aria-label="Delete"
-            title="Delete employee"
-          >
-            <Trash2 size={16} />
-          </button>
+          {canDelete && (
+            <button
+              disabled={busyId === r.id}
+              onClick={() => handleDelete(r)}
+              className="rounded-lg p-1.5 text-ink-500 transition hover:bg-bad-100 hover:text-bad-600 disabled:opacity-30"
+              aria-label="Delete"
+              title="Delete employee"
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
         </div>
       ),
       align: 'right',
@@ -438,7 +548,9 @@ export function Employees() {
         <div>
           <h2 className="text-2xl font-bold text-ink-900">Employee Management</h2>
           <p className="mt-1 text-sm text-ink-500">
-            {data ? `${data.length} employees across ${departments.length} departments` : 'Loading…'}
+            {data
+              ? `${data.length} ${pluralize(data.length, 'employee')} across ${departments.length} ${pluralize(departments.length, 'department')}`
+              : 'Loading…'}
           </p>
         </div>
         <div className="flex items-center gap-3">

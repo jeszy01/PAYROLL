@@ -73,13 +73,112 @@ services:
       SESSION_DRIVER: redis
       CACHE_STORE: redis
       QUEUE_CONNECTION: redis
-      FRONTEND_URL: http://localhost:5173   
-      SANCTUM_STATEFUL_DOMAINS: "localhost:5173,127.0.0.1:5173"
+      FRONTEND_URL: http://localhost:4173
+      SANCTUM_STATEFUL_DOMAINS: "localhost:4173,127.0.0.1:4173"
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/var/www/html
       - backend_vendor:/var/www/html/vendor
+
+  employee-service:
+    build:
+      context: ./employee-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      EMPLOYEE_DB_HOST: postgres
+      EMPLOYEE_DB_PORT: "5432"
+      EMPLOYEE_DB_DATABASE: employee_db
+      EMPLOYEE_DB_USERNAME: payroll_user
+      EMPLOYEE_DB_PASSWORD: payroll_pass
+      INTERNAL_API_KEY: "${INTERNAL_API_KEY}"
+    ports:
+      - "8001:8001"
+
+  auth-service:
+    build:
+      context: ./auth-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      AUTH_DB_HOST: postgres
+      AUTH_DB_PORT: "5432"
+      AUTH_DB_DATABASE: auth_db
+      AUTH_DB_USERNAME: payroll_user
+      AUTH_DB_PASSWORD: payroll_pass
+      INTERNAL_API_KEY: "${INTERNAL_API_KEY}"
+    ports:
+      - "8002:8002"
+
+  payroll-service:
+    build:
+      context: ./payroll-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PAYROLL_DB_HOST: postgres
+      PAYROLL_DB_PORT: "5432"
+      PAYROLL_DB_DATABASE: payroll_db
+      PAYROLL_DB_USERNAME: payroll_user
+      PAYROLL_DB_PASSWORD: payroll_pass
+      INTERNAL_API_KEY: "${INTERNAL_API_KEY}"
+    ports:
+      - "8003:8003"
+
+  attendance-service:
+    build:
+      context: ./attendance-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ATTENDANCE_DB_HOST: postgres
+      ATTENDANCE_DB_PORT: "5432"
+      ATTENDANCE_DB_DATABASE: attendance_db
+      ATTENDANCE_DB_USERNAME: payroll_user
+      ATTENDANCE_DB_PASSWORD: payroll_pass
+      INTERNAL_API_KEY: "${INTERNAL_API_KEY}"
+    ports:
+      - "8004:8004"
+
+  scheduler:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8000
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: payroll_benefits
+      DB_USERNAME: payroll_user
+      DB_PASSWORD: payroll_pass
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SESSION_DRIVER: redis
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      FRONTEND_URL: http://localhost:4173
+      SANCTUM_STATEFUL_DOMAINS: "localhost:4173,127.0.0.1:4173"
+    volumes:
+      - ./backend:/var/www/html
+      - backend_vendor:/var/www/html/vendor
+    command: php artisan schedule:work
 
   frontend:
     image: node:22-alpine
@@ -90,7 +189,7 @@ services:
     environment:
       VITE_API_BASE_URL: http://localhost:8000/api
     ports:
-      - "5173:5173"
+      - "4173:5173"
     volumes:
       - ./payroll-benefits-system:/app
       - frontend_node_modules:/app/node_modules

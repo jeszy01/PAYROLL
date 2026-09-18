@@ -8,8 +8,15 @@ import { CompensationPlanning } from './pages/CompensationPlanning';
 import { ClaimsReimbursement } from './pages/ClaimsReimbursement';
 import { HmoBenefits } from './pages/HmoBenefits';
 import { Login } from './pages/Login';
-<<<<<<< Updated upstream
+import { EmployeeDashboard } from './pages/employee/EmployeeDashboard';
+import { EmployeeAttendance } from './pages/employee/EmployeeAttendance';
+import { EmployeeProfile } from './pages/employee/EmployeeProfile';
+import { EmployeePayslips } from './pages/employee/EmployeePayslips';
+import { EmployeeClaims } from './pages/employee/EmployeeClaims';
+import { EmployeeBenefits } from './pages/employee/EmployeeBenefits';
 import { authService } from './services/auth.service';
+import { useCurrentUser, isAdmin } from './hooks/useCurrentUser';
+import { EssTwoFactorGate } from './components/employee/EssTwoFactorGate';
 
 function RequireAuth({ children }: { children: ReactNode }) {
   if (!authService.hasToken()) {
@@ -17,21 +24,46 @@ function RequireAuth({ children }: { children: ReactNode }) {
   }
   return <>{children}</>;
 }
-=======
-import { RequireAuth, RequireRole } from './components/auth/RequireAuth';
->>>>>>> Stashed changes
+
+function RequireAdmin({ children }: { children: ReactNode }) {
+  const { data: user, loading } = useCurrentUser();
+  if (loading) return null;
+  if (!isAdmin(user)) {
+    return <Navigate to="/" replace />;
+  }
+  return <>{children}</>;
+}
+
+function RequireEmployee({ children }: { children: ReactNode }) {
+  const { data: user, loading } = useCurrentUser();
+  if (loading) return null;
+  if (!user || user.role !== 'employee') {
+    return <Navigate to="/" replace />;
+  }
+  return <>{children}</>;
+}
+
+function RequireStaff({ children }: { children: ReactNode }) {
+  const { data: user, loading } = useCurrentUser();
+  if (loading) return null;
+  if (!user || user.role === 'employee') {
+    return <Navigate to="/login" replace />;
+  }
+  return <>{children}</>;
+}
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
-<<<<<<< Updated upstream
         <Route
           path="/"
           element={
             <RequireAuth>
-              <Dashboard />
+              <RequireStaff>
+                <Dashboard />
+              </RequireStaff>
             </RequireAuth>
           }
         />
@@ -39,7 +71,9 @@ function App() {
           path="/employees"
           element={
             <RequireAuth>
-              <Employees />
+              <RequireStaff>
+                <Employees />
+              </RequireStaff>
             </RequireAuth>
           }
         />
@@ -47,7 +81,11 @@ function App() {
           path="/users"
           element={
             <RequireAuth>
-              <UserManagement />
+              <RequireStaff>
+                <RequireAdmin>
+                  <UserManagement />
+                </RequireAdmin>
+              </RequireStaff>
             </RequireAuth>
           }
         />
@@ -55,7 +93,9 @@ function App() {
           path="/payroll"
           element={
             <RequireAuth>
-              <PayrollManagement />
+              <RequireStaff>
+                <PayrollManagement />
+              </RequireStaff>
             </RequireAuth>
           }
         />
@@ -63,7 +103,9 @@ function App() {
           path="/compensation"
           element={
             <RequireAuth>
-              <CompensationPlanning />
+              <RequireStaff>
+                <CompensationPlanning />
+              </RequireStaff>
             </RequireAuth>
           }
         />
@@ -71,7 +113,9 @@ function App() {
           path="/claims"
           element={
             <RequireAuth>
-              <ClaimsReimbursement />
+              <RequireStaff>
+                <ClaimsReimbursement />
+              </RequireStaff>
             </RequireAuth>
           }
         />
@@ -79,30 +123,85 @@ function App() {
           path="/benefits"
           element={
             <RequireAuth>
-              <HmoBenefits />
+              <RequireStaff>
+                <HmoBenefits />
+              </RequireStaff>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/ess"
+          element={
+            <RequireAuth>
+              <RequireEmployee>
+                <EssTwoFactorGate>
+                  <EmployeeDashboard />
+                </EssTwoFactorGate>
+              </RequireEmployee>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/ess/attendance"
+          element={
+            <RequireAuth>
+              <RequireEmployee>
+                <EssTwoFactorGate>
+                  <EmployeeAttendance />
+                </EssTwoFactorGate>
+              </RequireEmployee>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/ess/profile"
+          element={
+            <RequireAuth>
+              <RequireEmployee>
+                <EssTwoFactorGate>
+                  <EmployeeProfile />
+                </EssTwoFactorGate>
+              </RequireEmployee>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/ess/payslips"
+          element={
+            <RequireAuth>
+              <RequireEmployee>
+                <EssTwoFactorGate>
+                  <EmployeePayslips />
+                </EssTwoFactorGate>
+              </RequireEmployee>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/ess/claims"
+          element={
+            <RequireAuth>
+              <RequireEmployee>
+                <EssTwoFactorGate>
+                  <EmployeeClaims />
+                </EssTwoFactorGate>
+              </RequireEmployee>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/ess/benefits"
+          element={
+            <RequireAuth>
+              <RequireEmployee>
+                <EssTwoFactorGate>
+                  <EmployeeBenefits />
+                </EssTwoFactorGate>
+              </RequireEmployee>
             </RequireAuth>
           }
         />
         <Route path="*" element={<Navigate to="/" replace />} />
-=======
-        <Route element={<RequireAuth />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/employees" element={<Employees />} />
-          <Route path="/payroll" element={<PayrollManagement />} />
-          <Route path="/compensation" element={<CompensationPlanning />} />
-          <Route path="/claims" element={<ClaimsReimbursement />} />
-          <Route path="/benefits" element={<HmoBenefits />} />
-          <Route path="/analytics" element={<HrAnalytics />} />
-          <Route
-            path="/users"
-            element={
-              <RequireRole role="admin">
-                <UserManagement />
-              </RequireRole>
-            }
-          />
-        </Route>
->>>>>>> Stashed changes
       </Routes>
     </BrowserRouter>
   );

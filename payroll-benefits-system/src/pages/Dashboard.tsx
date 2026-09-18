@@ -1,6 +1,4 @@
 import {
-  Banknote,
-  Users,
   Receipt,
   HeartPulse,
   UserPlus,
@@ -9,7 +7,8 @@ import {
   ShieldPlus,
   LineChart as LineChartIcon,
   Search as SearchIcon,
-  ArrowUp,
+  ShieldAlert,
+  ShieldCheck,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
@@ -132,13 +131,17 @@ export function Dashboard() {
   const latestRun = [...allRuns].sort((a, b) => b.payDate.localeCompare(a.payDate))[0];
   const pendingAdjustments = allAdjustments.filter((a) => a.status === 'pending');
 
+  const unresolvedAnomalies = allRuns.reduce((sum, r) => sum + r.unresolvedAnomaliesCount, 0);
+  const blockingAnomalies = allRuns.reduce((sum, r) => sum + r.blockingAnomaliesCount, 0);
+  const runsWithAnomalies = allRuns.filter((r) => r.unresolvedAnomaliesCount > 0).length;
+
   return (
     <Layout title="Dashboard" subtitle="Overview">
       <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold text-ink-900">
-              Welcome back{firstName ? `, ${firstName}` : ''} 👋
+              Welcome back{firstName ? `, ${firstName}` : ''}
             </h2>
             <p className="mt-1 text-sm text-ink-500">
               Here's what's happening with payroll and benefits today.
@@ -162,41 +165,59 @@ export function Dashboard() {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
-            icon={Users}
             label="Total Employees"
             value={String(emp.length)}
-            tone="purple"
             hint={
               <span>
-                <span className="text-good-600">
-                  <ArrowUp size={11} className="inline" /> {activeCount} active
-                </span>
+                <span className="text-primary-600">{activeCount} active</span>
                 {onLeaveCount > 0 && <span> · {onLeaveCount} on leave</span>}
               </span>
             }
           />
           <StatCard
-            icon={Banknote}
             label="Net Payroll YTD"
             value={formatCurrency(netPayrollYtd)}
-            tone="good"
             hint={`Across ${completedRuns.length} completed runs`}
           />
           <StatCard
-            icon={Receipt}
             label="Pending Claims"
             value={String(pendingClaims.length)}
-            tone="clay"
             hint={`${formatCurrency(pendingClaimsTotal)} total in pipeline`}
           />
           <StatCard
-            icon={HeartPulse}
             label="HMO Enrolled"
             value={String(enrolledMembers.length)}
-            tone="primary"
             hint={`${formatCurrency(hmoCoverageTotal)} total coverage`}
           />
         </div>
+
+        <Link
+          to="/payroll"
+          className={`flex items-center justify-between gap-4 rounded-xl border p-4 shadow-sm transition ${
+            unresolvedAnomalies > 0
+              ? 'border-clay-100 bg-clay-100/30 hover:bg-clay-100/50'
+              : 'border-line bg-surface hover:bg-sand-50'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+                unresolvedAnomalies > 0 ? 'bg-clay-100 text-clay-600' : 'bg-good-100 text-good-600'
+              }`}
+            >
+              {unresolvedAnomalies > 0 ? <ShieldAlert size={18} /> : <ShieldCheck size={18} />}
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-ink-900">AI Anomaly Alerts</p>
+              <p className="text-xs text-ink-500">
+                {unresolvedAnomalies > 0
+                  ? `${unresolvedAnomalies} unresolved flag${unresolvedAnomalies === 1 ? '' : 's'} across ${runsWithAnomalies} payroll run${runsWithAnomalies === 1 ? '' : 's'}${blockingAnomalies > 0 ? ` · ${blockingAnomalies} blocking approval` : ''}`
+                  : 'No anomalies flagged — rule-based checks run on every payroll compute.'}
+              </p>
+            </div>
+          </div>
+          <span className="shrink-0 text-xs font-semibold text-primary-600">Review →</span>
+        </Link>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="rounded-xl border border-line bg-surface p-5 shadow-sm lg:col-span-2">

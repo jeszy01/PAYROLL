@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class BenefitPlan extends Model
 {
     use HasUuids;
+     protected $connection = 'benefits';
 
     protected $fillable = [
         'plan_name', 'provider', 'plan_type', 'coverage_amount',

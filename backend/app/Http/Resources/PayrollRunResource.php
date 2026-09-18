@@ -21,6 +21,10 @@ class PayrollRunResource extends JsonResource
             'grossTotal' => (float) $this->gross_total,
             'deductionsTotal' => (float) $this->deductions_total,
             'netTotal' => (float) $this->net_total,
+            // Populated via withCount() in PayrollRunController — 0 when not
+            // eager-loaded rather than null, so the UI badge never breaks.
+            'unresolvedAnomaliesCount' => (int) ($this->unresolved_anomalies_count ?? 0),
+            'blockingAnomaliesCount' => (int) ($this->blocking_anomalies_count ?? 0),
             'createdAt' => $this->created_at?->toIso8601String(),
         ];
     }

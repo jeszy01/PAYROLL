@@ -14,4 +14,6 @@ export const benefitsService = {
   ) => apiClient.post<BenefitEnrollment>('/benefits/enrollments', payload),
   updateEnrollmentStatus: (id: string, status: BenefitEnrollment['status']) =>
     apiClient.patch<BenefitEnrollment>(`/benefits/enrollments/${id}`, { status }),
+
+  listMyEnrollments: () => apiClient.get<BenefitEnrollment[]>('/me/benefits'),
 };

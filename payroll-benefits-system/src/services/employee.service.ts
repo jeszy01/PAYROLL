@@ -7,4 +7,8 @@ export const employeeService = {
   update: (id: string, payload: Partial<Omit<Employee, 'id'>>) =>
     apiClient.patch<Employee>(`/employees/${id}`, payload),
   remove: (id: string) => apiClient.delete<void>(`/employees/${id}`),
+
+  getMe: () => apiClient.get<Employee>('/me/profile'),
+  updateMe: (payload: Partial<Pick<Employee, 'phone' | 'address'>>) =>
+    apiClient.patch<Employee>('/me/profile', payload),
 };

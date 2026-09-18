@@ -11,7 +11,9 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import logo from '../../assets/archon-nell-logo.png';
-import { useCurrentUser } from '../../hooks/useCurrentUser';
+import { useCurrentUser, isAdmin } from '../../hooks/useCurrentUser';
+
+const ROLE_LABEL = { admin: 'Admin', hr_staff: 'HR Staff', employee: 'Employee' } as const;
 
 function initialsOf(fullName?: string) {
   if (!fullName) return '—';
@@ -35,6 +37,7 @@ const NAV_ITEMS = [
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const { data: user } = useCurrentUser();
+  const accountHref = isAdmin(user) ? '/users' : '#';
 
   return (
     <aside
@@ -79,7 +82,10 @@ export function Sidebar() {
         {!collapsed ? (
           <div className="flex items-center gap-2">
             <Link
-              to="/users"
+              to={accountHref}
+              onClick={(e) => {
+                if (accountHref === '#') e.preventDefault();
+              }}
               className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-1 transition hover:bg-white/10"
             >
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-500 text-sm font-semibold text-white">
@@ -87,7 +93,7 @@ export function Sidebar() {
               </div>
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-white">{user?.fullName ?? 'Not signed in'}</p>
-                <p className="truncate text-xs text-white/60">{user?.role ?? 'Guest'}</p>
+                <p className="truncate text-xs text-white/60">{user ? ROLE_LABEL[user.role] : 'Guest'}</p>
               </div>
             </Link>
             <button
@@ -102,7 +108,10 @@ export function Sidebar() {
         ) : (
           <div className="flex flex-col items-center gap-2">
             <Link
-              to="/users"
+              to={accountHref}
+              onClick={(e) => {
+                if (accountHref === '#') e.preventDefault();
+              }}
               title={user?.fullName ?? 'Not signed in'}
               className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-500 text-sm font-semibold text-white transition hover:opacity-90"
             >
