@@ -10,6 +10,7 @@ use Laravel\Sanctum\HasApiTokens;
 class User extends Authenticatable
 {
     use HasApiTokens, Notifiable;
+       protected $connection = 'auth'; 
 
     public const ROLE_ADMIN = 'admin';
     public const ROLE_HR = 'hr';

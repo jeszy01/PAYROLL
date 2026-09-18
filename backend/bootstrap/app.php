@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
     $middleware->alias([
         'role' => \App\Http\Middleware\EnsureUserHasRole::class,
         'ess.verified' => \App\Http\Middleware\EnsureEssVerified::class,
+         'internal.key' => \App\Http\Middleware\VerifyInternalApiKey::class,
     ]);
 })
     ->withExceptions(function (Exceptions $exceptions) {

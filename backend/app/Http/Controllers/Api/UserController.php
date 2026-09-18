@@ -39,6 +39,33 @@ class UserController extends Controller
         return new UserResource($user);
     }
 
+      public function showViaInternalApi(User $user)
+    {
+        if (! $user->employee_id) {
+            return response()->json([
+                'user' => new UserResource($user),
+                'employee_via_internal_api' => null,
+                'message' => 'This user has no linked employee record.',
+            ]);
+        }
+
+        $response = \Illuminate\Support\Facades\Http::withHeaders([
+            'X-Internal-Api-Key' => config('services.internal_api_key'),
+         ])->timeout(5)->retry(2, 200)->get(config('app.url').'/api/internal/employees/'.$user->employee_id);
+
+        if (! $response->successful()) {
+            return response()->json([
+                'message' => 'Employee service unavailable.',
+                'status' => $response->status(),
+            ], 502);
+        }
+
+        return response()->json([
+            'user' => new UserResource($user),
+            'employee_via_internal_api' => $response->json(),
+        ]);
+    }
+
     public function update(Request $request, User $user)
     {
         $data = $request->validate([

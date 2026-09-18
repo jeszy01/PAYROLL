@@ -41,6 +41,33 @@ class PayslipController extends Controller
         return new PayslipResource($payslip);
     }
 
+
+    /**
+     * Demo endpoint: fetches the payslip's employee via a real HTTP call
+     * to the Employee service's internal API, instead of the Eloquent
+     * belongsTo relationship — demonstrates the microservice
+     * service-to-service communication pattern.
+     */
+    public function showViaInternalApi(Payslip $payslip)
+    {
+        $response = \Illuminate\Support\Facades\Http::withHeaders([
+            'X-Internal-Api-Key' => config('services.internal_api_key'),
+         ])->timeout(5)->retry(2, 200)->get('http://employee-service:8001/employees/'.$payslip->employee_id);
+
+        if (! $response->successful()) {
+            return response()->json([
+                'message' => 'Employee service unavailable.',
+                'status' => $response->status(),
+            ], 502);
+        }
+
+        return response()->json([
+            'payslip' => new PayslipResource($payslip),
+            'employee_via_internal_api' => $response->json(),
+        ]);
+    }
+
+
     /**
      * Send one payslip via email or SMS.
      *

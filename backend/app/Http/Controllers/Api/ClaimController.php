@@ -92,6 +92,31 @@ class ClaimController extends Controller
         return new ClaimResource($claim);
     }
 
+        /**
+     * Demo endpoint: fetches the claim's employee via a real HTTP call
+     * to the Employee service's internal API, instead of a direct
+     * Eloquent lookup — demonstrates the microservice service-to-service
+     * communication pattern.
+     */
+    public function showViaInternalApi(Claim $claim)
+    {
+        $response = \Illuminate\Support\Facades\Http::withHeaders([
+            'X-Internal-Api-Key' => config('services.internal_api_key'),
+        ])->timeout(5)->retry(2, 200)->get(config('app.url').'/api/internal/employees/'.$claim->employee_id);
+
+        if (! $response->successful()) {
+            return response()->json([
+                'message' => 'Employee service unavailable.',
+                'status' => $response->status(),
+            ], 502);
+        }
+
+        return response()->json([
+            'claim' => new ClaimResource($claim),
+            'employee_via_internal_api' => $response->json(),
+        ]);
+    }
+
     public function update(Request $request, Claim $claim)
     {
         $data = $request->validate([

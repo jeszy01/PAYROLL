@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class AttendanceRecord extends Model
 {
     use HasUuids;
+     protected $connection = 'attendance';  
 
     protected $fillable = [
         'employee_id', 'date', 'timestamp_in', 'timestamp_out',

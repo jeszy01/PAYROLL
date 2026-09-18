@@ -135,4 +135,24 @@ class AttendanceRecordController extends Controller
 
         return ['name' => $holiday->name, 'type' => $holiday->type];
     }
+
+     public function showViaInternalApi(AttendanceRecord $attendanceRecord)
+    {
+        $response = \Illuminate\Support\Facades\Http::withHeaders([
+            'X-Internal-Api-Key' => config('services.internal_api_key'),
+        ])->timeout(5)->retry(2, 200)->get(config('app.url').'/api/internal/employees/'.$attendanceRecord->employee_id);
+
+        if (! $response->successful()) {
+            return response()->json([
+                'message' => 'Employee service unavailable.',
+                'status' => $response->status(),
+            ], 502);
+        }
+
+        return response()->json([
+            'attendanceRecord' => new AttendanceRecordResource($attendanceRecord),
+            'employee_via_internal_api' => $response->json(),
+        ]);
+    }
+
 }

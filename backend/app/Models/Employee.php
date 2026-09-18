@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Employee extends Model
 {
     use HasUuids, SoftDeletes;
+        protected $connection = 'employee';
+   
 
     protected $fillable = [
         'employee_number', 'first_name', 'last_name', 'email', 'phone', 'address',

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class EssVerificationCode extends Model
 {
+    protected $connection = 'auth'; 
     public const UPDATED_AT = null;
 
     protected $fillable = [

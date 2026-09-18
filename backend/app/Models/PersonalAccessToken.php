@@ -11,6 +11,7 @@ use Laravel\Sanctum\PersonalAccessToken as SanctumPersonalAccessToken;
  */
 class PersonalAccessToken extends SanctumPersonalAccessToken
 {
+    protected $connection = 'auth';
     protected $casts = [
         'abilities' => 'json',
         'last_used_at' => 'datetime',

@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class PayrollAnomaly extends Model
 {
     use HasUuids;
+    protected $connection = 'payroll';   
 
     public const SEVERITY_LOW = 'low';
     public const SEVERITY_MEDIUM = 'medium';

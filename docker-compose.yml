@@ -81,6 +81,74 @@ services:
       - ./backend:/var/www/html
       - backend_vendor:/var/www/html/vendor
 
+  employee-service:
+    build:
+      context: ./employee-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      EMPLOYEE_DB_HOST: postgres
+      EMPLOYEE_DB_PORT: "5432"
+      EMPLOYEE_DB_DATABASE: employee_db
+      EMPLOYEE_DB_USERNAME: payroll_user
+      EMPLOYEE_DB_PASSWORD: payroll_pass
+      INTERNAL_API_KEY: "${INTERNAL_API_KEY}"
+    ports:
+      - "8001:8001"
+
+  auth-service:
+    build:
+      context: ./auth-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      AUTH_DB_HOST: postgres
+      AUTH_DB_PORT: "5432"
+      AUTH_DB_DATABASE: auth_db
+      AUTH_DB_USERNAME: payroll_user
+      AUTH_DB_PASSWORD: payroll_pass
+      INTERNAL_API_KEY: "${INTERNAL_API_KEY}"
+    ports:
+      - "8002:8002"
+
+  payroll-service:
+    build:
+      context: ./payroll-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PAYROLL_DB_HOST: postgres
+      PAYROLL_DB_PORT: "5432"
+      PAYROLL_DB_DATABASE: payroll_db
+      PAYROLL_DB_USERNAME: payroll_user
+      PAYROLL_DB_PASSWORD: payroll_pass
+      INTERNAL_API_KEY: "${INTERNAL_API_KEY}"
+    ports:
+      - "8003:8003"
+
+  attendance-service:
+    build:
+      context: ./attendance-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ATTENDANCE_DB_HOST: postgres
+      ATTENDANCE_DB_PORT: "5432"
+      ATTENDANCE_DB_DATABASE: attendance_db
+      ATTENDANCE_DB_USERNAME: payroll_user
+      ATTENDANCE_DB_PASSWORD: payroll_pass
+     INTERNAL_API_KEY: "${INTERNAL_API_KEY}"
+    ports:
+      - "8004:8004"
+
   scheduler:
     build:
       context: ./backend

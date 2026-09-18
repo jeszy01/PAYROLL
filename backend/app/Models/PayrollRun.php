@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class PayrollRun extends Model
 {
     use HasUuids;
+       protected $connection = 'payroll';
 
     protected $fillable = [
         'pay_period_start', 'pay_period_end', 'pay_date', 'cutoff_label',
