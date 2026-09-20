@@ -34,7 +34,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:admin')->group(function () {
         Route::get('/users', [UserController::class, 'index']);
         Route::post('/users', [UserController::class, 'store']);
-        Route::get('/users/{user}/via-internal-api', [UserController::class, 'showViaInternalApi']);
         Route::patch('/users/{user}', [UserController::class, 'update']);
         Route::delete('/users/{user}', [UserController::class, 'destroy']);
     });
@@ -62,7 +61,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/payroll/runs', [PayrollRunController::class, 'index']);
         Route::post('/payroll/runs', [PayrollRunController::class, 'store']);
         Route::get('/payroll/runs/{payrollRun}', [PayrollRunController::class, 'show']);
-        Route::get('/attendance-records/{attendanceRecord}/via-internal-api', [AttendanceRecordController::class, 'showViaInternalApi']);
         Route::get('/payroll/runs/{payrollRun}/attendance', [AttendanceSummaryController::class, 'indexForRun']);
         Route::post('/payroll/runs/{payrollRun}/compute', [PayrollRunController::class, 'compute']);
         Route::post('/payroll/runs/{payrollRun}/approve', [PayrollRunController::class, 'approve'])->middleware('role:admin');
@@ -73,7 +71,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/payroll/runs/{payrollRun}/payslips', [PayslipController::class, 'indexForRun']);
         Route::post('/payroll/runs/{payrollRun}/payslips/send-bulk', [PayslipController::class, 'sendBulk']);
         Route::get('/payroll/payslips/{payslip}', [PayslipController::class, 'show']);
-        Route::get('/payroll/payslips/{payslip}/via-internal-api', [PayslipController::class, 'showViaInternalApi']);
         Route::post('/payroll/payslips/{payslip}/send', [PayslipController::class, 'send']);
 
         // ---------- AI-Powered Payroll Anomaly Detection ----------
@@ -95,7 +92,6 @@ Route::middleware('auth:sanctum')->group(function () {
         });
 
         Route::get('/compensation/adjustments', [CompensationAdjustmentController::class, 'index']);
-        Route::get('/compensation/adjustments/{compensationAdjustment}/via-internal-api', [CompensationAdjustmentController::class, 'showViaInternalApi']);
         Route::post('/compensation/adjustments', [CompensationAdjustmentController::class, 'store']);
         Route::patch('/compensation/adjustments/{compensationAdjustment}', [CompensationAdjustmentController::class, 'update'])->middleware('role:admin');
 
@@ -103,7 +99,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/claims', [ClaimController::class, 'index']);
         Route::post('/claims', [ClaimController::class, 'store']);
         Route::get('/claims/{claim}', [ClaimController::class, 'show']);
-        Route::get('/claims/{claim}/via-internal-api', [ClaimController::class, 'showViaInternalApi']);
         Route::patch('/claims/{claim}', [ClaimController::class, 'update']);
         Route::post('/claims/{claim}/reimburse', [ClaimController::class, 'reimburse']);
 
@@ -113,7 +108,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/benefits/plans/{benefitPlan}', [BenefitPlanController::class, 'update']);
 
         Route::get('/benefits/enrollments', [BenefitEnrollmentController::class, 'index']);
-        Route::get('/benefits/enrollments/{benefitEnrollment}/via-internal-api', [BenefitEnrollmentController::class, 'showViaInternalApi']);
         Route::post('/benefits/enrollments', [BenefitEnrollmentController::class, 'store']);
         Route::patch('/benefits/enrollments/{benefitEnrollment}', [BenefitEnrollmentController::class, 'update']);
 

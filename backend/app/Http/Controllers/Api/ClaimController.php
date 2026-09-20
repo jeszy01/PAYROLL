@@ -4,29 +4,51 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Concerns\ResolvesOwnEmployee;
 use App\Http\Controllers\Controller;
-use App\Http\Resources\ClaimResource;
-use App\Models\Claim;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 
 class ClaimController extends Controller
 {
     use ResolvesOwnEmployee;
 
+    private function client()
+    {
+        return Http::withHeaders([
+            'X-Internal-API-Key' => env('INTERNAL_API_KEY'),
+        ])->baseUrl('http://claims-service:8006');
+    }
+
+    private function transform(array $row): array
+    {
+        return [
+            'id' => $row['id'],
+            'employeeId' => $row['employee_id'],
+            'employeeName' => $row['employee_name'],
+            'department' => $row['department'],
+            'claimType' => $row['claim_type'],
+            'description' => $row['description'],
+            'amount' => (float) $row['amount'],
+            'dateIncurred' => $row['date_incurred'],
+            'dateSubmitted' => $row['date_submitted'],
+            'status' => $row['status'],
+            'attachmentName' => $row['attachment_name'] ?? null,
+            'reviewerNote' => $row['reviewer_note'] ?? null,
+        ];
+    }
+
     public function mine(Request $request)
     {
         $employee = $this->ownEmployee($request);
 
-        return ClaimResource::collection(
-            Claim::where('employee_id', $employee->id)->orderByDesc('date_submitted')->get()
-        );
+        $response = $this->client()->get('/claims', ['employee_id' => $employee->id]);
+
+        if ($response->failed()) {
+            return response()->json(['message' => 'Claims service unavailable.'], 502);
+        }
+
+        return response()->json(array_map(fn ($row) => $this->transform($row), $response->json()));
     }
 
-    /**
-     * Self-service claim submission. Identity (employee_id/name/department)
-     * is always derived from the authenticated user's linked employee —
-     * never taken from the request body — so an employee can't file a
-     * claim under someone else's name.
-     */
     public function storeMine(Request $request)
     {
         $employee = $this->ownEmployee($request);
@@ -38,7 +60,7 @@ class ClaimController extends Controller
             'dateIncurred' => ['required', 'date'],
         ]);
 
-        $claim = Claim::create([
+        $response = $this->client()->post('/claims', [
             'employee_id' => $employee->id,
             'employee_name' => "{$employee->first_name} {$employee->last_name}",
             'department' => $employee->department,
@@ -46,18 +68,24 @@ class ClaimController extends Controller
             'description' => $data['description'],
             'amount' => $data['amount'],
             'date_incurred' => $data['dateIncurred'],
-            'date_submitted' => now()->toDateString(),
-            'status' => 'submitted',
         ]);
 
-        return new ClaimResource($claim);
+        if ($response->failed()) {
+            return response()->json(['message' => 'Claims service unavailable.'], 502);
+        }
+
+        return response()->json($this->transform($response->json()), 201);
     }
 
     public function index()
     {
-        return ClaimResource::collection(
-            Claim::orderByDesc('date_submitted')->get()
-        );
+        $response = $this->client()->get('/claims');
+
+        if ($response->failed()) {
+            return response()->json(['message' => 'Claims service unavailable.'], 502);
+        }
+
+        return response()->json(array_map(fn ($row) => $this->transform($row), $response->json()));
     }
 
     public function store(Request $request)
@@ -72,7 +100,7 @@ class ClaimController extends Controller
             'dateIncurred' => ['required', 'date'],
         ]);
 
-        $claim = Claim::create([
+        $response = $this->client()->post('/claims', [
             'employee_id' => $data['employeeId'],
             'employee_name' => $data['employeeName'],
             'department' => $data['department'],
@@ -80,62 +108,65 @@ class ClaimController extends Controller
             'description' => $data['description'],
             'amount' => $data['amount'],
             'date_incurred' => $data['dateIncurred'],
-            'date_submitted' => now()->toDateString(),
-            'status' => 'submitted',
         ]);
 
-        return new ClaimResource($claim);
-    }
-
-    public function show(Claim $claim)
-    {
-        return new ClaimResource($claim);
-    }
-
-        /**
-     * Demo endpoint: fetches the claim's employee via a real HTTP call
-     * to the Employee service's internal API, instead of a direct
-     * Eloquent lookup — demonstrates the microservice service-to-service
-     * communication pattern.
-     */
-    public function showViaInternalApi(Claim $claim)
-    {
-        $response = \Illuminate\Support\Facades\Http::withHeaders([
-            'X-Internal-Api-Key' => config('services.internal_api_key'),
-        ])->timeout(5)->retry(2, 200)->get(config('app.url').'/api/internal/employees/'.$claim->employee_id);
-
-        if (! $response->successful()) {
-            return response()->json([
-                'message' => 'Employee service unavailable.',
-                'status' => $response->status(),
-            ], 502);
+        if ($response->failed()) {
+            return response()->json(['message' => 'Claims service unavailable.'], 502);
         }
 
-        return response()->json([
-            'claim' => new ClaimResource($claim),
-            'employee_via_internal_api' => $response->json(),
-        ]);
+        return response()->json($this->transform($response->json()), 201);
     }
 
-    public function update(Request $request, Claim $claim)
+    public function show(string $claim)
+    {
+        $response = $this->client()->get("/claims/{$claim}");
+
+        if ($response->status() === 404) {
+            return response()->json(['message' => 'Claim not found.'], 404);
+        }
+
+        if ($response->failed()) {
+            return response()->json(['message' => 'Claims service unavailable.'], 502);
+        }
+
+        return response()->json($this->transform($response->json()));
+    }
+
+    public function update(Request $request, string $claim)
     {
         $data = $request->validate([
             'status' => ['required', 'in:submitted,under_review,approved,rejected,reimbursed'],
             'reviewerNote' => ['nullable', 'string'],
         ]);
 
-        $claim->update([
+        $response = $this->client()->patch("/claims/{$claim}", [
             'status' => $data['status'],
-            'reviewer_note' => $data['reviewerNote'] ?? $claim->reviewer_note,
+            'reviewer_note' => $data['reviewerNote'] ?? null,
         ]);
 
-        return new ClaimResource($claim);
+        if ($response->status() === 404) {
+            return response()->json(['message' => 'Claim not found.'], 404);
+        }
+
+        if ($response->failed()) {
+            return response()->json(['message' => 'Claims service unavailable.'], 502);
+        }
+
+        return response()->json($this->transform($response->json()));
     }
 
-    public function reimburse(Claim $claim)
+    public function reimburse(string $claim)
     {
-        $claim->update(['status' => 'reimbursed']);
+        $response = $this->client()->post("/claims/{$claim}/reimburse");
 
-        return new ClaimResource($claim);
+        if ($response->status() === 404) {
+            return response()->json(['message' => 'Claim not found.'], 404);
+        }
+
+        if ($response->failed()) {
+            return response()->json(['message' => 'Claims service unavailable.'], 502);
+        }
+
+        return response()->json($this->transform($response->json()));
     }
 }

@@ -53,5 +53,35 @@ if (count($segments) === 2 && $segments[0] === 'users') {
     exit;
 }
 
+// ---------- Routing: POST /login ----------
+if (count($segments) === 1 && $segments[0] === 'login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $email = $input['email'] ?? '';
+    $password = $input['password'] ?? '';
+
+    if (! $email || ! $password) {
+        http_response_code(422);
+        echo json_encode(['message' => 'Email and password are required.']);
+        exit;
+    }
+
+    $stmt = $pdo->prepare('SELECT id, name, email, role, employee_id, password FROM users WHERE email = :email');
+    $stmt->execute(['email' => $email]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (! $user || ! password_verify($password, $user['password'])) {
+        http_response_code(401);
+        echo json_encode(['message' => 'Invalid credentials.']);
+        exit;
+    }
+
+    // Never send the password hash back out.
+    unset($user['password']);
+
+    http_response_code(200);
+    echo json_encode(['user' => $user]);
+    exit;
+}
+
 http_response_code(404);
 echo json_encode(['message' => 'Route not found.']);

@@ -149,6 +149,57 @@ services:
     ports:
       - "8004:8004"
 
+  compensation-service:
+    build:
+      context: ./compensation-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      COMPENSATION_DB_HOST: postgres
+      COMPENSATION_DB_PORT: "5432"
+      COMPENSATION_DB_DATABASE: compensation_db
+      COMPENSATION_DB_USERNAME: payroll_user
+      COMPENSATION_DB_PASSWORD: payroll_pass
+      INTERNAL_API_KEY: "${INTERNAL_API_KEY}"
+    ports:
+      - "8005:8005"
+
+  claims-service:
+    build:
+      context: ./claims-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      CLAIMS_DB_HOST: postgres
+      CLAIMS_DB_PORT: "5432"
+      CLAIMS_DB_DATABASE: claims_db
+      CLAIMS_DB_USERNAME: payroll_user
+      CLAIMS_DB_PASSWORD: payroll_pass
+      INTERNAL_API_KEY: "${INTERNAL_API_KEY}"
+    ports:
+      - "8006:8006"
+
+  benefits-service:
+    build:
+      context: ./benefits-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      BENEFITS_DB_HOST: postgres
+      BENEFITS_DB_PORT: "5432"
+      BENEFITS_DB_DATABASE: benefits_db
+      BENEFITS_DB_USERNAME: payroll_user
+      BENEFITS_DB_PASSWORD: payroll_pass
+      INTERNAL_API_KEY: "${INTERNAL_API_KEY}"
+    ports:
+      - "8007:8007"
+
   scheduler:
     build:
       context: ./backend
