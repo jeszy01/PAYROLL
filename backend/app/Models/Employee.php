@@ -10,13 +10,17 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Employee extends Model
 {
     use HasUuids, SoftDeletes;
+        protected $connection = 'employee';
+
 
     protected $fillable = [
-        'employee_number', 'first_name', 'last_name', 'email', 'phone',
-        'department', 'position', 'employment_status', 'date_hired',
+        'employee_number', 'first_name', 'last_name', 'email', 'phone', 'address',
+        'department', 'position', 'employment_status', 'employment_type', 'civil_status', 'date_hired',
         'base_salary', 'loan_deduction_per_cutoff',
         'transportation_allowance', 'rice_subsidy_allowance',
         'sss_loan_per_cutoff', 'hdmf_loan_per_cutoff',
+        'shift_start', 'shift_end',
+        'sss_number', 'philhealth_number', 'pagibig_number', 'tin_number',
     ];
 
     protected function casts(): array
@@ -35,5 +39,10 @@ class Employee extends Model
     public function payslips(): HasMany
     {
         return $this->hasMany(Payslip::class);
+    }
+
+    public function attendanceRecords(): HasMany
+    {
+        return $this->hasMany(AttendanceRecord::class);
     }
 }

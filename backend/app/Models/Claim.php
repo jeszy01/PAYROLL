@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class Claim extends Model
 {
     use HasUuids;
+    protected $connection = 'claims';
 
     protected $fillable = [
         'employee_id', 'employee_name', 'department', 'claim_type', 'description',

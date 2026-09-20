@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class PayrollRun extends Model
 {
     use HasUuids;
+       protected $connection = 'payroll';
 
     protected $fillable = [
         'pay_period_start', 'pay_period_end', 'pay_date', 'cutoff_label',
@@ -34,6 +35,11 @@ class PayrollRun extends Model
         return $this->hasMany(Payslip::class);
     }
 
+    public function anomalies(): HasMany
+    {
+        return $this->hasMany(PayrollAnomaly::class);
+    }
+
     /**
      * Weekday count for this run's actual pay period (cutoffs are 26-9 vs
      * 10-25, so this isn't a fixed constant). Used both to compute payroll
@@ -54,5 +60,28 @@ class PayrollRun extends Model
         }
 
         return max(1, $count); // guard against division by zero on malformed dates
+    }
+
+    /**
+     * Weekday count from $from (clamped to the period start) through the
+     * period end, inclusive. Used to prorate a mid-period hire's default
+     * attendance days — unlike workingDays(), this is allowed to be 0
+     * (e.g. someone hired after the period end).
+     */
+    public function workingDaysFrom(Carbon $from): int
+    {
+        $periodStart = Carbon::parse($this->pay_period_start);
+        $cursor = $from->greaterThan($periodStart) ? $from->copy() : $periodStart->copy();
+        $end = Carbon::parse($this->pay_period_end);
+
+        $count = 0;
+        while ($cursor->lte($end)) {
+            if (! $cursor->isWeekend()) {
+                $count++;
+            }
+            $cursor->addDay();
+        }
+
+        return $count;
     }
 }

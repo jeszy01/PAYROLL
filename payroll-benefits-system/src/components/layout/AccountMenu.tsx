@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LogOut, UserCog, ChevronDown } from 'lucide-react';
-import { useCurrentUser } from '../../hooks/useCurrentUser';
+import { useCurrentUser, isAdmin } from '../../hooks/useCurrentUser';
 import { authService } from '../../services/auth.service';
+
+const ROLE_LABEL = { admin: 'Admin', hr_staff: 'HR Staff', employee: 'Employee' } as const;
 
 export function AccountMenu() {
   const { data: user } = useCurrentUser();
@@ -47,7 +49,7 @@ export function AccountMenu() {
   }
 
   return (
-    <div ref={containerRef} className="relative border-l border-navy-100 pl-4">
+    <div ref={containerRef} className="relative border-l border-line pl-4">
       <button
         onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-3 rounded-lg py-1 pr-1 transition hover:bg-sand-100"
@@ -57,30 +59,32 @@ export function AccountMenu() {
         </div>
         <div className="hidden text-left text-sm sm:block">
           <p className="font-semibold text-ink-900">{user.fullName}</p>
-          <p className="text-xs text-ink-500">{user.role}</p>
+          <p className="text-xs text-ink-500">{ROLE_LABEL[user.role]}</p>
         </div>
         <ChevronDown size={16} className={`hidden text-ink-500 transition sm:block ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (
-        <div className="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-xl border border-navy-100 bg-white shadow-lg">
-          <div className="border-b border-navy-100 px-4 py-3">
+        <div className="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
+          <div className="border-b border-line px-4 py-3">
             <p className="truncate text-sm font-semibold text-ink-900">{user.fullName}</p>
-            <p className="truncate text-xs text-ink-500">{user.role}</p>
+            <p className="truncate text-xs text-ink-500">{ROLE_LABEL[user.role]}</p>
           </div>
 
           <div className="py-1">
-            <Link
-              to="/users"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink-900 transition hover:bg-sand-50"
-            >
-              <UserCog size={16} className="text-ink-500" />
-              User &amp; account settings
-            </Link>
+{isAdmin(user) && (
+              <Link
+                to="/users"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink-900 transition hover:bg-sand-50"
+              >
+                <UserCog size={16} className="text-ink-500" />
+                User &amp; account settings
+              </Link>
+            )}
           </div>
 
-          <div className="border-t border-navy-100 py-1">
+          <div className="border-t border-line py-1">
             <button
               onClick={handleSignOut}
               className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-bad-600 transition hover:bg-bad-100/50"

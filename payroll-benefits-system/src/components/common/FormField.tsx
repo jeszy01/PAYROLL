@@ -1,7 +1,7 @@
 import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, ReactNode } from 'react';
 
 const baseInput =
-  'w-full rounded-lg border border-navy-100 bg-white px-3 py-2 text-sm text-ink-900 outline-none transition focus:border-teal-500';
+  'w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink-900 outline-none transition focus:border-teal-500';
 
 interface FieldWrapperProps {
   label: string;

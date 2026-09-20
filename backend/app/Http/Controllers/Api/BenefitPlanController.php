@@ -3,17 +3,41 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\BenefitPlanResource;
-use App\Models\BenefitPlan;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 
 class BenefitPlanController extends Controller
 {
+    private function client()
+    {
+        return Http::withHeaders([
+            'X-Internal-API-Key' => env('INTERNAL_API_KEY'),
+        ])->baseUrl('http://benefits-service:8007');
+    }
+
+    private function transform(array $row): array
+    {
+        return [
+            'id' => $row['id'],
+            'planName' => $row['plan_name'],
+            'provider' => $row['provider'],
+            'planType' => $row['plan_type'],
+            'coverageAmount' => (float) $row['coverage_amount'],
+            'employerSharePercent' => (float) $row['employer_share_percent'],
+            'employeeSharePercent' => (float) $row['employee_share_percent'],
+            'isActive' => (bool) $row['is_active'],
+        ];
+    }
+
     public function index()
     {
-        return BenefitPlanResource::collection(
-            BenefitPlan::orderBy('plan_name')->get()
-        );
+        $response = $this->client()->get('/plans');
+
+        if ($response->failed()) {
+            return response()->json(['message' => 'Benefits service unavailable.'], 502);
+        }
+
+        return response()->json(array_map(fn ($row) => $this->transform($row), $response->json()));
     }
 
     public function store(Request $request)
@@ -27,20 +51,23 @@ class BenefitPlanController extends Controller
             'employeeSharePercent' => ['required', 'numeric', 'min:0', 'max:100'],
         ]);
 
-        $plan = BenefitPlan::create([
+        $response = $this->client()->post('/plans', [
             'plan_name' => $data['planName'],
             'provider' => $data['provider'],
             'plan_type' => $data['planType'],
             'coverage_amount' => $data['coverageAmount'],
             'employer_share_percent' => $data['employerSharePercent'],
             'employee_share_percent' => $data['employeeSharePercent'],
-            'is_active' => true,
         ]);
 
-        return new BenefitPlanResource($plan);
+        if ($response->failed()) {
+            return response()->json(['message' => 'Benefits service unavailable.'], 502);
+        }
+
+        return response()->json($this->transform($response->json()), 201);
     }
 
-    public function update(Request $request, BenefitPlan $benefitPlan)
+    public function update(Request $request, string $benefitPlan)
     {
         $data = $request->validate([
             'planName' => ['sometimes', 'string', 'max:255'],
@@ -58,10 +85,18 @@ class BenefitPlanController extends Controller
             'employeeSharePercent' => 'employee_share_percent', 'isActive' => 'is_active',
         ];
 
-        $benefitPlan->update(
-            collect($data)->mapWithKeys(fn ($v, $k) => [$map[$k] => $v])->toArray()
-        );
+        $payload = collect($data)->mapWithKeys(fn ($v, $k) => [$map[$k] => $v])->toArray();
 
-        return new BenefitPlanResource($benefitPlan);
+        $response = $this->client()->patch("/plans/{$benefitPlan}", $payload);
+
+        if ($response->status() === 404) {
+            return response()->json(['message' => 'Plan not found.'], 404);
+        }
+
+        if ($response->failed()) {
+            return response()->json(['message' => 'Benefits service unavailable.'], 502);
+        }
+
+        return response()->json($this->transform($response->json()));
     }
 }

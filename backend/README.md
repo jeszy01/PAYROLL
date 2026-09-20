@@ -54,11 +54,32 @@ There's no seeded user. Create one via Tinker:
 
 ```bash
 php artisan tinker
->>> \App\Models\User::create(['name' => 'HR Admin', 'email' => 'admin@example.com', 'password' => bcrypt('changeme'), 'role' => 'HR Administrator']);
+>>> \App\Models\User::create(['name' => 'HR Admin', 'email' => 'admin@example.com', 'password' => bcrypt('changeme'), 'role' => 'admin']);
 ```
 
 Then log in from the frontend (or via `POST /api/auth/login`) to get a
 Sanctum token.
+
+## Roles (RBAC)
+
+There are three roles, stored as `role` on `users`:
+
+- `admin` — full access, including User & Account Management, deleting
+  employees/payroll runs, approving/releasing payroll runs, and defining
+  salary grades / deciding compensation adjustments.
+- `hr_staff` — day-to-day HR operations (employees, payroll prep/compute,
+  claims, benefits, analytics, requesting compensation adjustments), but
+  cannot manage login accounts, cannot delete employees or payroll runs,
+  and cannot approve/release payroll runs or salary grades/adjustments.
+- `employee` — Employee Self-Service (own profile, payslips, claims,
+  benefits, and attendance), secured behind an email verification code
+  (2FA) per session. Employee accounts cannot access the admin/HR
+  business modules.
+
+User Management is admin-only. Enforced server-side via the `role:admin` /
+`role:admin,hr_staff` route middleware
+(`app/Http/Middleware/EnsureUserHasRole.php`) — the frontend also hides
+UI it can't use, but the API is the actual boundary.
 
 ## Project structure
 

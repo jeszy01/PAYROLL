@@ -28,7 +28,7 @@ export function GlobalSearch() {
 
   return (
     <div ref={containerRef} className="relative hidden md:block">
-      <div className="flex items-center gap-2 rounded-lg border border-navy-100 bg-sand-50 px-3 py-2 text-sm text-ink-500 focus-within:border-teal-500">
+      <div className="flex items-center gap-2 rounded-lg border border-line bg-sand-50 px-3 py-2 text-sm text-ink-500 focus-within:border-teal-500">
         <Search size={16} className="shrink-0" />
         <input
           value={query}
@@ -44,7 +44,7 @@ export function GlobalSearch() {
       </div>
 
       {open && query.trim().length >= 2 && (
-        <div className="absolute right-0 z-40 mt-2 w-80 overflow-hidden rounded-xl border border-navy-100 bg-white shadow-lg">
+        <div className="absolute right-0 z-40 mt-2 w-80 overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
           {!loading && results.length === 0 && (
             <p className="px-4 py-4 text-sm text-ink-500">No matches for "{query}".</p>
           )}

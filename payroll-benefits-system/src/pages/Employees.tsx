@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Users, Eye, Pencil, Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Plus, Users, Eye, Pencil, Trash2, Download, Search, RotateCcw } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { DataTable, type Column } from '../components/common/DataTable';
 import { EmptyState } from '../components/common/EmptyState';
@@ -8,8 +8,9 @@ import { StatusBadge } from '../components/common/StatusBadge';
 import { Modal } from '../components/common/Modal';
 import { TextField, SelectField } from '../components/common/FormField';
 import { useApiResource } from '../hooks/useApiResource';
+import { useCurrentUser, isAdmin } from '../hooks/useCurrentUser';
 import { employeeService } from '../services/employee.service';
-import type { Employee, EmploymentStatus } from '../types';
+import type { Employee, EmploymentStatus, EmploymentType, CivilStatus } from '../types';
 import { formatCurrency, formatDate } from '../utils/format';
 
 const STATUS_LABEL: Record<EmploymentStatus, string> = {
@@ -18,6 +19,59 @@ const STATUS_LABEL: Record<EmploymentStatus, string> = {
   suspended: 'Suspended',
   separated: 'Separated',
 };
+
+const EMPLOYMENT_TYPE_LABEL: Record<EmploymentType, string> = {
+  regular: 'Regular',
+  probationary: 'Probationary',
+  contractual: 'Contractual',
+};
+
+const CIVIL_STATUS_LABEL: Record<CivilStatus, string> = {
+  single: 'Single',
+  married: 'Married',
+  widowed: 'Widowed',
+  separated: 'Legally Separated',
+};
+
+const AVATAR_COLORS = ['#2f5fdb', '#7c5cf5', '#1e7a4c', '#c97b5a', '#2f6b82', '#b3781a'];
+
+function avatarColor(seed: string) {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
+
+function initials(first: string, last: string) {
+  return `${first[0] ?? ''}${last[0] ?? ''}`.toUpperCase();
+}
+
+function pluralize(count: number, singular: string, plural = `${singular}s`) {
+  return count === 1 ? singular : plural;
+}
+
+function exportEmployeesCsv(rows: Employee[]) {
+  const header = [
+    'Employee #', 'First name', 'Last name', 'Email', 'Department', 'Position', 'Status', 'Date hired', 'Base salary',
+    'Employment type', 'Civil status', 'SSS No.', 'PhilHealth No.', 'Pag-IBIG No.', 'TIN',
+  ];
+  const lines = rows.map((r) =>
+    [
+      r.employeeNumber, r.firstName, r.lastName, r.email, r.department, r.position, STATUS_LABEL[r.employmentStatus], r.dateHired, r.baseSalary,
+      EMPLOYMENT_TYPE_LABEL[r.employmentType], CIVIL_STATUS_LABEL[r.civilStatus],
+      r.sssNumber ?? '', r.philhealthNumber ?? '', r.pagibigNumber ?? '', r.tinNumber ?? '',
+    ]
+      .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+      .join(',')
+  );
+  const csv = [header.join(','), ...lines].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `employees-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 function EmployeeFormModal({
   title,
@@ -39,6 +93,8 @@ function EmployeeFormModal({
     department: initial?.department ?? '',
     position: initial?.position ?? '',
     employmentStatus: initial?.employmentStatus ?? ('active' as EmploymentStatus),
+    employmentType: initial?.employmentType ?? ('regular' as EmploymentType),
+    civilStatus: initial?.civilStatus ?? ('single' as CivilStatus),
     dateHired: initial?.dateHired ?? '',
     baseSalary: initial ? String(initial.baseSalary) : '',
     loanDeductionPerCutoff: initial ? String(initial.loanDeductionPerCutoff) : '',
@@ -46,6 +102,12 @@ function EmployeeFormModal({
     riceSubsidyAllowance: initial ? String(initial.riceSubsidyAllowance) : '',
     sssLoanPerCutoff: initial ? String(initial.sssLoanPerCutoff) : '',
     hdmfLoanPerCutoff: initial ? String(initial.hdmfLoanPerCutoff) : '',
+    sssNumber: initial?.sssNumber ?? '',
+    philhealthNumber: initial?.philhealthNumber ?? '',
+    pagibigNumber: initial?.pagibigNumber ?? '',
+    tinNumber: initial?.tinNumber ?? '',
+    shiftStart: initial?.shiftStart ?? '09:00',
+    shiftEnd: initial?.shiftEnd ?? '18:00',
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +126,8 @@ function EmployeeFormModal({
         department: form.department,
         position: form.position,
         employmentStatus: form.employmentStatus,
+        employmentType: form.employmentType,
+        civilStatus: form.civilStatus,
         dateHired: form.dateHired,
         baseSalary: Number(form.baseSalary),
         loanDeductionPerCutoff: Number(form.loanDeductionPerCutoff) || 0,
@@ -71,6 +135,12 @@ function EmployeeFormModal({
         riceSubsidyAllowance: Number(form.riceSubsidyAllowance) || 0,
         sssLoanPerCutoff: Number(form.sssLoanPerCutoff) || 0,
         hdmfLoanPerCutoff: Number(form.hdmfLoanPerCutoff) || 0,
+        sssNumber: form.sssNumber || null,
+        philhealthNumber: form.philhealthNumber || null,
+        pagibigNumber: form.pagibigNumber || null,
+        tinNumber: form.tinNumber || null,
+        shiftStart: form.shiftStart,
+        shiftEnd: form.shiftEnd,
       });
       onClose();
     } catch (err) {
@@ -165,7 +235,66 @@ function EmployeeFormModal({
             onChange={(e) => setForm({ ...form, baseSalary: e.target.value })}
           />
         </div>
-        <div className="border-t border-navy-100 pt-4">
+        <div className="grid grid-cols-2 gap-4">
+          <SelectField
+            label="Employment type"
+            required
+            value={form.employmentType}
+            onChange={(e) => setForm({ ...form, employmentType: e.target.value as EmploymentType })}
+          >
+            {Object.entries(EMPLOYMENT_TYPE_LABEL).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </SelectField>
+          <SelectField
+            label="Civil status"
+            required
+            value={form.civilStatus}
+            onChange={(e) => setForm({ ...form, civilStatus: e.target.value as CivilStatus })}
+          >
+            {Object.entries(CIVIL_STATUS_LABEL).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </SelectField>
+        </div>
+        <div className="border-t border-line pt-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-500">
+            Statutory &amp; government IDs
+          </p>
+          <div className="grid grid-cols-2 gap-4">
+            <TextField
+              label="SSS number"
+              placeholder="e.g. 34-1234567-8"
+              value={form.sssNumber}
+              onChange={(e) => setForm({ ...form, sssNumber: e.target.value })}
+            />
+            <TextField
+              label="PhilHealth number"
+              placeholder="e.g. 12-345678901-2"
+              value={form.philhealthNumber}
+              onChange={(e) => setForm({ ...form, philhealthNumber: e.target.value })}
+            />
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-4">
+            <TextField
+              label="Pag-IBIG number"
+              placeholder="e.g. 1234-5678-9012"
+              value={form.pagibigNumber}
+              onChange={(e) => setForm({ ...form, pagibigNumber: e.target.value })}
+            />
+            <TextField
+              label="TIN"
+              placeholder="e.g. 123-456-789-000"
+              value={form.tinNumber}
+              onChange={(e) => setForm({ ...form, tinNumber: e.target.value })}
+            />
+          </div>
+        </div>
+        <div className="border-t border-line pt-4">
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-500">
             Recurring per-cutoff amounts
           </p>
@@ -217,7 +346,7 @@ function EmployeeFormModal({
           <button
             type="submit"
             disabled={submitting}
-            className="rounded-lg bg-navy-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-navy-800 disabled:opacity-50"
+            className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:opacity-50"
           >
             {submitting ? 'Saving…' : initial ? 'Save changes' : 'Add employee'}
           </button>
@@ -236,8 +365,14 @@ function ViewEmployeeModal({ employee, onClose }: { employee: Employee; onClose:
     ['Department', employee.department],
     ['Position', employee.position],
     ['Status', <StatusBadge status={employee.employmentStatus} />],
+    ['Employment type', EMPLOYMENT_TYPE_LABEL[employee.employmentType]],
+    ['Civil status', CIVIL_STATUS_LABEL[employee.civilStatus]],
     ['Date hired', formatDate(employee.dateHired)],
     ['Base salary', formatCurrency(employee.baseSalary)],
+    ['SSS number', employee.sssNumber || '—'],
+    ['PhilHealth number', employee.philhealthNumber || '—'],
+    ['Pag-IBIG number', employee.pagibigNumber || '—'],
+    ['TIN', employee.tinNumber || '—'],
     [
       'Transportation allowance',
       employee.transportationAllowance > 0 ? formatCurrency(employee.transportationAllowance) : '—',
@@ -262,7 +397,7 @@ function ViewEmployeeModal({ employee, onClose }: { employee: Employee; onClose:
 
   return (
     <Modal title={`${employee.firstName} ${employee.lastName}`} onClose={onClose}>
-      <dl className="divide-y divide-navy-100">
+      <dl className="divide-y divide-line">
         {rows.map(([label, value]) => (
           <div key={label} className="flex items-center justify-between gap-4 py-2.5 text-sm">
             <dt className="text-ink-500">{label}</dt>
@@ -280,11 +415,42 @@ function ViewEmployeeModal({ employee, onClose }: { employee: Employee; onClose:
 }
 
 export function Employees() {
+  const { data: currentUser } = useCurrentUser();
+  const canDelete = isAdmin(currentUser);
   const { data, loading, error, refetch } = useApiResource(() => employeeService.list(), []);
   const [showNew, setShowNew] = useState(false);
   const [viewingEmployee, setViewingEmployee] = useState<Employee | null>(null);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  const [search, setSearch] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+
+  const departments = useMemo(
+    () => [...new Set((data ?? []).map((e) => e.department))].sort(),
+    [data]
+  );
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return (data ?? []).filter((e) => {
+      if (departmentFilter && e.department !== departmentFilter) return false;
+      if (statusFilter && e.employmentStatus !== statusFilter) return false;
+      if (!q) return true;
+      return (
+        e.employeeNumber.toLowerCase().includes(q) ||
+        e.email.toLowerCase().includes(q) ||
+        `${e.firstName} ${e.lastName}`.toLowerCase().includes(q)
+      );
+    });
+  }, [data, search, departmentFilter, statusFilter]);
+
+  function resetFilters() {
+    setSearch('');
+    setDepartmentFilter('');
+    setStatusFilter('');
+  }
 
   async function handleDelete(employee: Employee) {
     if (!confirm(`Remove ${employee.firstName} ${employee.lastName} from employee records? This cannot be undone.`)) {
@@ -302,12 +468,35 @@ export function Employees() {
   }
 
   const columns: Column<Employee>[] = [
-    { header: 'Employee #', render: (r) => <span className="font-medium">{r.employeeNumber}</span> },
-    { header: 'Name', render: (r) => `${r.firstName} ${r.lastName}` },
-    { header: 'Email', render: (r) => r.email },
-    { header: 'Phone', render: (r) => r.phone || '—' },
-    { header: 'Department', render: (r) => r.department },
-    { header: 'Position', render: (r) => r.position },
+    {
+      header: 'Employee',
+      render: (r) => (
+        <div className="flex items-center gap-3">
+          <div
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
+            style={{ backgroundColor: avatarColor(r.employeeNumber) }}
+          >
+            {initials(r.firstName, r.lastName)}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate font-medium text-ink-900">
+              {r.firstName} {r.lastName}
+            </p>
+            <p className="truncate text-xs text-ink-500">{r.email}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      header: 'Position / Dept',
+      render: (r) => (
+        <div className="min-w-0">
+          <p className="truncate text-ink-900">{r.position}</p>
+          <p className="truncate text-xs text-ink-500">{r.department}</p>
+        </div>
+      ),
+    },
+    { header: 'Employee #', render: (r) => r.employeeNumber },
     { header: 'Date hired', render: (r) => formatDate(r.dateHired) },
     { header: 'Base salary', render: (r) => formatCurrency(r.baseSalary), align: 'right' },
     {
@@ -336,15 +525,17 @@ export function Employees() {
           >
             <Pencil size={16} />
           </button>
-          <button
-            disabled={busyId === r.id}
-            onClick={() => handleDelete(r)}
-            className="rounded-lg p-1.5 text-ink-500 transition hover:bg-bad-100 hover:text-bad-600 disabled:opacity-30"
-            aria-label="Delete"
-            title="Delete employee"
-          >
-            <Trash2 size={16} />
-          </button>
+          {canDelete && (
+            <button
+              disabled={busyId === r.id}
+              onClick={() => handleDelete(r)}
+              className="rounded-lg p-1.5 text-ink-500 transition hover:bg-bad-100 hover:text-bad-600 disabled:opacity-30"
+              aria-label="Delete"
+              title="Delete employee"
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
         </div>
       ),
       align: 'right',
@@ -352,30 +543,101 @@ export function Employees() {
   ];
 
   return (
-    <Layout title="Employees" subtitle="Employee records used across payroll, claims, and benefits">
-      <div className="flex justify-end mb-4">
-        <button
-          onClick={() => setShowNew(true)}
-          className="flex items-center gap-2 rounded-lg bg-navy-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-navy-800"
-        >
-          <Plus size={16} /> Add employee
-        </button>
+    <Layout title="Employees" subtitle="Directory &amp; profiles">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-ink-900">Employee Management</h2>
+          <p className="mt-1 text-sm text-ink-500">
+            {data
+              ? `${data.length} ${pluralize(data.length, 'employee')} across ${departments.length} ${pluralize(departments.length, 'department')}`
+              : 'Loading…'}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => exportEmployeesCsv(filtered)}
+            disabled={!data || data.length === 0}
+            className="flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-ink-900 transition hover:bg-sand-100 disabled:opacity-50"
+          >
+            <Download size={16} /> Export CSV
+          </button>
+          <button
+            onClick={() => setShowNew(true)}
+            className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-700"
+          >
+            <Plus size={16} /> Add Employee
+          </button>
+        </div>
       </div>
 
-      {loading && <LoadingState label="Loading employees…" />}
-      {!loading && error && <ErrorState message={error} onRetry={refetch} />}
-      {!loading && !error && (!data || data.length === 0) && (
-        <EmptyState
-          icon={Users}
-          title="No employees yet"
-          description="Add your first employee record — this is what payroll, claims, compensation, and benefits will reference."
-          actionLabel="Add employee"
-          onAction={() => setShowNew(true)}
-        />
-      )}
-      {!loading && !error && data && data.length > 0 && (
-        <DataTable columns={columns} rows={data} rowKey={(r) => r.id} />
-      )}
+      <div className="rounded-xl border border-line bg-surface p-5 shadow-sm">
+        <h3 className="text-sm font-semibold text-ink-900">Employee Directory</h3>
+        <p className="mb-4 text-xs text-ink-500">Manage workforce records</p>
+
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <div className="flex min-w-[220px] flex-1 items-center gap-2 rounded-lg border border-line bg-sand-50 px-3 py-2 text-sm">
+            <Search size={16} className="shrink-0 text-ink-500" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name, ID, email…"
+              className="w-full bg-transparent text-ink-900 outline-none placeholder:text-ink-500"
+            />
+          </div>
+          <select
+            value={departmentFilter}
+            onChange={(e) => setDepartmentFilter(e.target.value)}
+            className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink-900 outline-none focus:border-teal-500"
+          >
+            <option value="">All Departments</option>
+            {departments.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </select>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink-900 outline-none focus:border-teal-500"
+          >
+            <option value="">All Status</option>
+            {Object.entries(STATUS_LABEL).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={resetFilters}
+            className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-sm font-medium text-ink-500 transition hover:bg-sand-100"
+          >
+            <RotateCcw size={14} /> Reset
+          </button>
+        </div>
+
+        {loading && <LoadingState label="Loading employees…" />}
+        {!loading && error && <ErrorState message={error} onRetry={refetch} />}
+        {!loading && !error && (!data || data.length === 0) && (
+          <EmptyState
+            icon={Users}
+            title="No employees yet"
+            description="Add your first employee record — this is what payroll, claims, compensation, and benefits will reference."
+            actionLabel="Add employee"
+            onAction={() => setShowNew(true)}
+          />
+        )}
+        {!loading && !error && data && data.length > 0 && filtered.length === 0 && (
+          <EmptyState
+            icon={Search}
+            title="No matching employees"
+            description="Try adjusting your search or filters."
+          />
+        )}
+        {!loading && !error && filtered.length > 0 && (
+          <DataTable columns={columns} rows={filtered} rowKey={(r) => r.id} />
+        )}
+      </div>
 
       {showNew && (
         <EmployeeFormModal

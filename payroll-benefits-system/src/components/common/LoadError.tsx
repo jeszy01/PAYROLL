@@ -2,7 +2,7 @@ import { Loader2, AlertTriangle } from 'lucide-react';
 
 export function LoadingState({ label = 'Loading…' }: { label?: string }) {
   return (
-    <div className="flex items-center justify-center gap-2 rounded-xl border border-navy-100 bg-white px-6 py-16 text-sm text-ink-500">
+    <div className="flex items-center justify-center gap-2 rounded-xl border border-line bg-surface px-6 py-16 text-sm text-ink-500">
       <Loader2 size={18} className="animate-spin" />
       {label}
     </div>
@@ -20,7 +20,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
       {onRetry && (
         <button
           onClick={onRetry}
-          className="mt-2 rounded-lg border border-navy-100 bg-white px-4 py-2 text-sm font-semibold text-ink-900 transition hover:bg-sand-100"
+          className="mt-2 rounded-lg border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink-900 transition hover:bg-sand-100"
         >
           Try again
         </button>

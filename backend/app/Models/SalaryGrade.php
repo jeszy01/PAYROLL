@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class SalaryGrade extends Model
 {
     use HasUuids;
+     protected $connection = 'compensation';
 
     protected $fillable = [
         'grade_code', 'grade_name', 'min_salary', 'mid_salary', 'max_salary', 'applicable_positions',
