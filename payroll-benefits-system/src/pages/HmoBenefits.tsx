@@ -4,7 +4,6 @@ import { Layout } from '../components/layout/Layout';
 import { DataTable, type Column } from '../components/common/DataTable';
 import { EmptyState } from '../components/common/EmptyState';
 import { LoadingState, ErrorState } from '../components/common/LoadError';
-import { StatusBadge } from '../components/common/StatusBadge';
 import { Modal } from '../components/common/Modal';
 import { TextField, SelectField } from '../components/common/FormField';
 import { EmployeePicker } from '../components/common/EmployeePicker';
@@ -266,12 +265,40 @@ function EnrollmentsTab() {
   const { data, loading, error, refetch } = useApiResource(() => benefitsService.listEnrollments(), []);
   const { data: plans } = useApiResource(() => benefitsService.listPlans(), []);
   const [showNew, setShowNew] = useState(false);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  async function handleStatusChange(id: string, status: BenefitEnrollment['status']) {
+    setUpdatingId(id);
+    try {
+      await benefitsService.updateEnrollmentStatus(id, status);
+      refetch();
+    } catch (err) {
+      console.error('Could not update enrollment status', err);
+    } finally {
+      setUpdatingId(null);
+    }
+  }
 
   const columns: Column<BenefitEnrollment>[] = [
     { header: 'Employee', render: (r) => <span className="font-medium">{r.employeeName}</span> },
     { header: 'Plan', render: (r) => r.planName },
     { header: 'Dependents', render: (r) => r.dependents.length, align: 'center' },
-    { header: 'Status', render: (r) => <StatusBadge status={r.status} /> },
+    {
+      header: 'Status',
+      render: (r) => (
+        <select
+          value={r.status}
+          disabled={updatingId === r.id}
+          onChange={(e) => handleStatusChange(r.id, e.target.value as BenefitEnrollment['status'])}
+          className="rounded-lg border border-line bg-surface px-2 py-1 text-xs font-semibold text-ink-700 disabled:opacity-50"
+        >
+          <option value="pending">Pending</option>
+          <option value="enrolled">Enrolled</option>
+          <option value="waived">Waived</option>
+          <option value="terminated">Terminated</option>
+        </select>
+      ),
+    },
   ];
 
   return (
