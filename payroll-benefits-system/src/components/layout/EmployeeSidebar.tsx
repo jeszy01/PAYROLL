@@ -9,7 +9,6 @@ import {
   ChevronsRight,
 } from 'lucide-react';
 import { useState } from 'react';
-import logo from '../../assets/archon-nell-logo.png';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 
 function initialsOf(fullName?: string) {
@@ -41,13 +40,29 @@ export function EmployeeSidebar() {
       }`}
     >
       <div className="flex items-center gap-3 px-5 py-6">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white">
-          <img src={logo} alt="Archon Nell Incorporated" className="h-9 w-9 object-contain" />
-        </div>
+       <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white">
+  <svg width="40" height="40" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="50" cy="50" rx="47" ry="15" stroke="#8B5CF6" strokeWidth="4" transform="rotate(-25 50 50)" />
+    <ellipse cx="50" cy="50" rx="47" ry="15" stroke="#F59E0B" strokeWidth="4" transform="rotate(35 50 50)" />
+    <ellipse cx="50" cy="50" rx="47" ry="15" stroke="#3B82F6" strokeWidth="4" transform="rotate(95 50 50)" />
+    <circle cx="88" cy="35" r="3.5" fill="#8B5CF6" />
+    <circle cx="12" cy="65" r="3.5" fill="#F59E0B" />
+    <circle cx="50" cy="50" r="18" fill="#16A34A" />
+    <text x="50" y="54" textAnchor="middle" fontSize="10" fontWeight="700" fill="white" fontFamily="Arial, sans-serif">
+      arch
+    </text>
+  </svg>
+</div>
+{!collapsed && (
+  <div className="min-w-0">
+    <p className="truncate text-sm font-extrabold italic text-red-600">Archon Nell</p>
+    <p className="truncate text-[10px] font-semibold tracking-wide text-blue-800">Incorporated</p>
+  </div>
+)}
         {!collapsed && (
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-white">Archon Nell Incorporated</p>
-            <p className="truncate text-xs text-white/60">Employee Self-Service</p>
+            <p className="truncate text-sm font-bold text-white">Archon Nell</p>
+            <p className="truncate text-[10px] font-semibold tracking-widest text-red-500">Incorporated</p>
           </div>
         )}
       </div>

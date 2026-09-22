@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\Route;
 // ---------- Auth ----------
 // Rate-limited so login can't be brute-forced.
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
+Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
+Route::post('/auth/verify-otp', [AuthController::class, 'verifyOtp'])->middleware('throttle:10,1');
 
 // Everything below requires a valid Sanctum access token — the frontend is
 // entirely behind a login wall, so no employee, payroll, claims, compensation,

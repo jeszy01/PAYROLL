@@ -1,14 +1,34 @@
 import { apiClient, AUTH_TOKEN_KEY } from './apiClient';
 import type { CurrentUser } from '../hooks/useCurrentUser';
 
-interface LoginResponse {
+export interface LoginSuccess {
   token: string;
   user: CurrentUser;
 }
 
+export interface OtpChallenge {
+  otp_required: true;
+  email_hint: string;
+}
+
+export type LoginResponse = LoginSuccess | OtpChallenge;
+
+export function isOtpChallenge(res: LoginResponse): res is OtpChallenge {
+  return 'otp_required' in res && res.otp_required === true;
+}
+
 export const authService = {
-  login: (email: string, password: string) =>
-    apiClient.post<LoginResponse>('/auth/login', { email, password }),
+  login: (employeeNumber: string, password: string) =>
+    apiClient.post<LoginResponse>('/auth/login', {
+      employee_number: employeeNumber,
+      password,
+    }),
+
+  verifyOtp: (employeeNumber: string, code: string) =>
+    apiClient.post<LoginSuccess>('/auth/verify-otp', {
+      employee_number: employeeNumber,
+      code,
+    }),
 
   logout: async () => {
     try {

@@ -1,36 +1,80 @@
 import { useState } from 'react';
-import { LockKeyhole, Eye, EyeOff } from 'lucide-react';
-import { authService } from '../services/auth.service';
-import { ApiError } from '../services/apiClient';
+import { LockKeyhole, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { authService, isOtpChallenge } from '../services/auth.service';
+import { ApiError, apiClient } from '../services/apiClient';
 import logo from '../assets/archon-nell-logo.png';
-import { apiClient } from '../services/apiClient';
+
+type Step = 'credentials' | 'otp';
 
 export function Login() {
-  const [email, setEmail] = useState('');
+  const [employeeNumber, setEmployeeNumber] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [step, setStep] = useState<Step>('credentials');
+  const [code, setCode] = useState('');
+  const [emailHint, setEmailHint] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function completeLogin(token: string) {
+    authService.saveToken(token);
+    const me = await apiClient.get<{ role: string }>('/auth/me');
+    window.location.href = me.role === 'employee' ? '/ess' : '/';
+  }
+
+  function errorMessage(err: unknown, invalidMessage: string) {
+    if (err instanceof ApiError) {
+      if (err.status === 422) return invalidMessage;
+      if (err.status === 429) return 'Too many attempts. Please wait a minute and try again.';
+    }
+    return 'Could not reach the server. Check your connection and try again.';
+  }
+
+  async function handleCredentials(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
     try {
-          const { token } = await authService.login(email, password);
-      authService.saveToken(token);
+      const res = await authService.login(employeeNumber.trim(), password);
 
-      const me = await apiClient.get<{ role: string }>('/auth/me');
-      window.location.href = me.role === 'employee' ? '/ess' : '/';
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 422) {
-        setError('Incorrect email or password.');
-      } else {
-        setError('Could not reach the server. Check your connection and try again.');
+      if (isOtpChallenge(res)) {
+        setEmailHint(res.email_hint);
+        setCode('');
+        setStep('otp');
+        return;
       }
+
+      await completeLogin(res.token);
+    } catch (err) {
+      setError(errorMessage(err, 'Incorrect employee ID or password.'));
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function handleOtp(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await authService.verifyOtp(employeeNumber.trim(), code.trim());
+      await completeLogin(res.token);
+    } catch (err) {
+      setError(
+        errorMessage(
+          err,
+          'This code is invalid, expired, or has had too many attempts. Go back and sign in again for a new code.',
+        ),
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function backToCredentials() {
+    setStep('credentials');
+    setCode('');
+    setError(null);
   }
 
   return (
@@ -59,7 +103,9 @@ export function Login() {
           </p>
         </div>
 
-<p className="text-xs text-navy-100/40">© {new Date().getFullYear()} Archon Nell Incorporated. All rights reserved.</p>
+        <p className="text-xs text-navy-100/40">
+          © {new Date().getFullYear()} Archon Nell Incorporated. All rights reserved.
+        </p>
       </div>
 
       {/* Right panel — form */}
@@ -72,66 +118,121 @@ export function Login() {
             <p className="text-sm font-bold text-ink-900">Archon Nell Incorporated</p>
           </div>
 
-          <h1 className="text-2xl font-bold text-ink-900">Welcome back</h1>
-          <p className="mt-1 text-sm text-ink-500">Sign in to your account to continue</p>
+          {step === 'credentials' ? (
+            <>
+              <h1 className="text-2xl font-bold text-ink-900">Welcome back</h1>
+              <p className="mt-1 text-sm text-ink-500">Sign in to your account to continue</p>
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-            <label className="block text-sm">
-              <span className="mb-1.5 block font-medium text-ink-900">
-                Email <span className="text-clay-600">*</span>
-              </span>
-              <input
-                type="email"
-                required
-                autoFocus
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@company.com"
-                className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-sm text-ink-900 outline-none transition focus:border-teal-500"
-              />
-            </label>
+              <form onSubmit={handleCredentials} className="mt-6 space-y-4">
+                <label className="block text-sm">
+                  <span className="mb-1.5 block font-medium text-ink-900">
+                    Employee ID <span className="text-clay-600">*</span>
+                  </span>
+                  <input
+                    type="text"
+                    required
+                    autoFocus
+                    autoComplete="username"
+                    value={employeeNumber}
+                    onChange={(e) => setEmployeeNumber(e.target.value)}
+                    placeholder="Enter your employee ID"
+                    className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-sm text-ink-900 outline-none transition focus:border-teal-500"
+                  />
+                </label>
 
-            <label className="block text-sm">
-              <span className="mb-1.5 flex items-center justify-between font-medium text-ink-900">
-                Password <span className="text-clay-600">*</span>
-              </span>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 pr-10 text-sm text-ink-900 outline-none transition focus:border-teal-500"
-                />
+                <label className="block text-sm">
+                  <span className="mb-1.5 flex items-center justify-between font-medium text-ink-900">
+                    Password <span className="text-clay-600">*</span>
+                  </span>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter your password"
+                      className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 pr-10 text-sm text-ink-900 outline-none transition focus:border-teal-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((s) => !s)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-300 hover:text-ink-500"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </label>
+
+                {error && (
+                  <p className="rounded-lg bg-bad-100 px-3 py-2 text-sm text-bad-600">{error}</p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-teal-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                >
+                  <LockKeyhole size={16} />
+                  {submitting ? 'Signing in…' : 'Sign in'}
+                </button>
+              </form>
+
+              <p className="mt-6 text-center text-xs text-ink-300">
+                No account yet? Ask your administrator to create one via the backend.
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-2xl font-bold text-ink-900">Check your email</h1>
+              <p className="mt-1 text-sm text-ink-500">
+                We sent a 6-digit code to <span className="font-medium">{emailHint}</span>. It
+                expires in 5 minutes.
+              </p>
+
+              <form onSubmit={handleOtp} className="mt-6 space-y-4">
+                <label className="block text-sm">
+                  <span className="mb-1.5 block font-medium text-ink-900">
+                    Verification code <span className="text-clay-600">*</span>
+                  </span>
+                  <input
+                    type="text"
+                    required
+                    autoFocus
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="123456"
+                    className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-center text-lg tracking-[0.5em] text-ink-900 outline-none transition focus:border-teal-500"
+                  />
+                </label>
+
+                {error && (
+                  <p className="rounded-lg bg-bad-100 px-3 py-2 text-sm text-bad-600">{error}</p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={submitting || code.length !== 6}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-teal-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                >
+                  <ShieldCheck size={16} />
+                  {submitting ? 'Verifying…' : 'Verify and sign in'}
+                </button>
+
                 <button
                   type="button"
-                  onClick={() => setShowPassword((s) => !s)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-300 hover:text-ink-500"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  onClick={backToCredentials}
+                  className="w-full text-center text-xs text-ink-500 hover:text-ink-900"
                 >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  Back to sign in
                 </button>
-              </div>
-            </label>
-
-            {error && (
-              <p className="rounded-lg bg-bad-100 px-3 py-2 text-sm text-bad-600">{error}</p>
-            )}
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-teal-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
-            >
-              <LockKeyhole size={16} />
-              {submitting ? 'Signing in…' : 'Sign in'}
-            </button>
-          </form>
-
-          <p className="mt-6 text-center text-xs text-ink-300">
-            No account yet? Ask your administrator to create one via the backend.
-          </p>
+              </form>
+            </>
+          )}
         </div>
       </div>
     </div>

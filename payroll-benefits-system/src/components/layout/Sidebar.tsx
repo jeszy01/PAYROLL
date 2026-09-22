@@ -10,7 +10,6 @@ import {
   ChevronsRight,
 } from 'lucide-react';
 import { useState } from 'react';
-import logo from '../../assets/archon-nell-logo.png';
 import { useCurrentUser, isAdmin } from '../../hooks/useCurrentUser';
 
 const ROLE_LABEL = { admin: 'Admin', hr_staff: 'HR Staff', employee: 'Employee' } as const;
@@ -46,13 +45,40 @@ export function Sidebar() {
       }`}
     >
       <div className="flex items-center gap-3 px-5 py-6">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white">
-          <img src={logo} alt="Archon Nell Incorporated" className="h-9 w-9 object-contain" />
-        </div>
+        <svg width="40" height="40" viewBox="0 0 100 100" className="shrink-0">
+  <defs>
+    <linearGradient id="ring1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#2563EB" />
+      <stop offset="50%" stopColor="#7C3AED" />
+      <stop offset="100%" stopColor="#C026D3" />
+    </linearGradient>
+    <linearGradient id="ring2" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stopColor="#F59E0B" />
+      <stop offset="50%" stopColor="#EA580C" />
+      <stop offset="100%" stopColor="#DB2777" />
+    </linearGradient>
+    <linearGradient id="ring3" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stopColor="#0EA5E9" />
+      <stop offset="50%" stopColor="#8B5CF6" />
+      <stop offset="100%" stopColor="#EC4899" />
+    </linearGradient>
+    <linearGradient id="nucleusGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#4ADE80" />
+      <stop offset="100%" stopColor="#16A34A" />
+    </linearGradient>
+  </defs>
+  <ellipse cx="50" cy="50" rx="46" ry="17" fill="none" stroke="url(#ring1)" strokeWidth="5" transform="rotate(-30 50 50)" />
+  <ellipse cx="50" cy="50" rx="46" ry="17" fill="none" stroke="url(#ring2)" strokeWidth="5" transform="rotate(30 50 50)" />
+  <ellipse cx="50" cy="50" rx="46" ry="17" fill="none" stroke="url(#ring3)" strokeWidth="5" transform="rotate(90 50 50)" />
+  <ellipse cx="50" cy="50" rx="22" ry="12" fill="url(#nucleusGrad)" />
+  <text x="50" y="54" textAnchor="middle" fontFamily="Arial, sans-serif" fontWeight="800" fontSize="11" fill="#FFFFFF">
+  ANI
+</text>
+</svg>
         {!collapsed && (
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-white">Archon Nell Incorporated</p>
-            <p className="truncate text-xs text-white/60">Payroll &amp; Benefits</p>
+            <p className="truncate text-sm font-extrabold text-red-600">ARCHON NELL</p>
+            <p className="truncate text-[10px] font-semibold tracking-wide text-white">INCORPORATED</p>
           </div>
         )}
       </div>
