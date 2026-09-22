@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { LockKeyhole, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { authService, isOtpChallenge } from '../services/auth.service';
-import { ApiError, apiClient } from '../services/apiClient';
+import { ApiError } from '../services/apiClient';
 import logo from '../assets/archon-nell-logo.png';
 
 type Step = 'credentials' | 'otp';
+
+const RESEND_SECONDS = 60;
 
 export function Login() {
   const [employeeNumber, setEmployeeNumber] = useState('');
@@ -13,13 +15,15 @@ export function Login() {
   const [step, setStep] = useState<Step>('credentials');
   const [code, setCode] = useState('');
   const [emailHint, setEmailHint] = useState('');
+  const [expiresIn, setExpiresIn] = useState(10);
+  const [cooldown, setCooldown] = useState(0);
+  const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   async function completeLogin(token: string) {
     authService.saveToken(token);
-    const me = await apiClient.get<{ role: string }>('/auth/me');
-    window.location.href = me.role === 'employee' ? '/ess' : '/';
+    window.location.href = '/';
   }
 
   function errorMessage(err: unknown, invalidMessage: string) {
@@ -39,6 +43,9 @@ export function Login() {
 
       if (isOtpChallenge(res)) {
         setEmailHint(res.email_hint);
+        setExpiresIn(res.expires_in_minutes ?? 10);
+        setCooldown(RESEND_SECONDS);
+        setNotice(null);
         setCode('');
         setStep('otp');
         return;
@@ -71,10 +78,40 @@ export function Login() {
     }
   }
 
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setTimeout(() => setCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
+
+  async function handleResend() {
+    setSubmitting(true);
+    setError(null);
+    setNotice(null);
+    try {
+      // Signing in again re-checks the password and emails a fresh code.
+      const res = await authService.login(employeeNumber.trim(), password);
+
+      if (isOtpChallenge(res)) {
+        setEmailHint(res.email_hint);
+        setExpiresIn(res.expires_in_minutes ?? 10);
+        setCode('');
+        setCooldown(RESEND_SECONDS);
+        setNotice('A new code was sent. Older codes no longer work.');
+      }
+    } catch (err) {
+      setError(errorMessage(err, 'Could not resend the code. Go back and sign in again.'));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   function backToCredentials() {
     setStep('credentials');
     setCode('');
     setError(null);
+    setNotice(null);
+    setCooldown(0);
   }
 
   return (
@@ -188,7 +225,7 @@ export function Login() {
               <h1 className="text-2xl font-bold text-ink-900">Check your email</h1>
               <p className="mt-1 text-sm text-ink-500">
                 We sent a 6-digit code to <span className="font-medium">{emailHint}</span>. It
-                expires in 5 minutes.
+                expires in {expiresIn} minutes.
               </p>
 
               <form onSubmit={handleOtp} className="mt-6 space-y-4">
@@ -221,6 +258,17 @@ export function Login() {
                 >
                   <ShieldCheck size={16} />
                   {submitting ? 'Verifying…' : 'Verify and sign in'}
+                </button>
+
+                {notice && !error && <p className="text-xs text-ink-500">{notice}</p>}
+
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={submitting || cooldown > 0}
+                  className="w-full text-center text-xs font-medium text-teal-500 hover:opacity-80 disabled:text-ink-300"
+                >
+                  {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend code'}
                 </button>
 
                 <button

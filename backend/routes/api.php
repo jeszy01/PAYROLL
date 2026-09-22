@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\Api\AnalyticsController;
-use App\Http\Controllers\Api\AttendanceRecordController;
 use App\Http\Controllers\Api\AttendanceSummaryController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BenefitEnrollmentController;
@@ -9,7 +8,6 @@ use App\Http\Controllers\Api\BenefitPlanController;
 use App\Http\Controllers\Api\ClaimController;
 use App\Http\Controllers\Api\CompensationAdjustmentController;
 use App\Http\Controllers\Api\EmployeeController;
-use App\Http\Controllers\Api\EssTwoFactorController;
 use App\Http\Controllers\Api\PayrollAnomalyController;
 use App\Http\Controllers\Api\PayrollRunController;
 use App\Http\Controllers\Api\PayslipController;
@@ -19,7 +17,6 @@ use Illuminate\Support\Facades\Route;
 
 // ---------- Auth ----------
 // Rate-limited so login can't be brute-forced.
-Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
 Route::post('/auth/verify-otp', [AuthController::class, 'verifyOtp'])->middleware('throttle:10,1');
 
@@ -115,26 +112,5 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // ---------- HR Analytics ----------
         Route::get('/analytics/summary', [AnalyticsController::class, 'summary']);
-    });
-
-    // ---------- Employee Self-Service ----------
-    // 2FA step-up: check/request/verify are reachable pre-verification
-    // (that's the whole point); everything else under /me is gated behind
-    // having verified this session, regardless of the caller's role.
-    Route::get('/me/2fa/status', [EssTwoFactorController::class, 'status']);
-    Route::post('/me/2fa/send', [EssTwoFactorController::class, 'send'])->middleware('throttle:3,1');
-    Route::post('/me/2fa/verify', [EssTwoFactorController::class, 'verify'])->middleware('throttle:10,1');
-
-    Route::middleware('ess.verified')->group(function () {
-        Route::get('/me/profile', [EmployeeController::class, 'me']);
-        Route::patch('/me/profile', [EmployeeController::class, 'updateMe']);
-        Route::get('/me/payslips', [PayslipController::class, 'mine']);
-        Route::get('/me/claims', [ClaimController::class, 'mine']);
-        Route::post('/me/claims', [ClaimController::class, 'storeMine']);
-        Route::get('/me/benefits', [BenefitEnrollmentController::class, 'mine']);
-        Route::get('/me/attendance/today', [AttendanceRecordController::class, 'today']);
-        Route::post('/me/attendance/clock-in', [AttendanceRecordController::class, 'clockIn']);
-        Route::post('/me/attendance/clock-out', [AttendanceRecordController::class, 'clockOut']);
-        Route::get('/me/attendance/history', [AttendanceRecordController::class, 'history']);
     });
 });
