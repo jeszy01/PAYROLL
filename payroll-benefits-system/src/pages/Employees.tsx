@@ -10,7 +10,9 @@ import { TextField, SelectField } from '../components/common/FormField';
 import { useApiResource } from '../hooks/useApiResource';
 import { useCurrentUser, isAdmin } from '../hooks/useCurrentUser';
 import { employeeService } from '../services/employee.service';
-import type { Employee, EmploymentStatus, EmploymentType, CivilStatus } from '../types';
+import { attendanceService } from '../services/attendance.service';
+import { payrollService } from '../services/payroll.service';
+import type { Employee, EmploymentStatus, EmploymentType, CivilStatus, AttendanceSummaryRow, PayrollRun, Payslip } from '../types';
 import { formatCurrency, formatDate } from '../utils/format';
 
 const STATUS_LABEL: Record<EmploymentStatus, string> = {
@@ -373,26 +375,7 @@ function ViewEmployeeModal({ employee, onClose }: { employee: Employee; onClose:
     ['PhilHealth number', employee.philhealthNumber || '—'],
     ['Pag-IBIG number', employee.pagibigNumber || '—'],
     ['TIN', employee.tinNumber || '—'],
-    [
-      'Transportation allowance',
-      employee.transportationAllowance > 0 ? formatCurrency(employee.transportationAllowance) : '—',
-    ],
-    [
-      'Rice subsidy allowance',
-      employee.riceSubsidyAllowance > 0 ? formatCurrency(employee.riceSubsidyAllowance) : '—',
-    ],
-    [
-      'Company loan deduction (per cutoff)',
-      employee.loanDeductionPerCutoff > 0 ? formatCurrency(employee.loanDeductionPerCutoff) : '—',
-    ],
-    [
-      'SSS loan deduction (per cutoff)',
-      employee.sssLoanPerCutoff > 0 ? formatCurrency(employee.sssLoanPerCutoff) : '—',
-    ],
-    [
-      'HDMF loan deduction (per cutoff)',
-      employee.hdmfLoanPerCutoff > 0 ? formatCurrency(employee.hdmfLoanPerCutoff) : '—',
-    ],
+    
   ];
 
   return (
@@ -414,9 +397,115 @@ function ViewEmployeeModal({ employee, onClose }: { employee: Employee; onClose:
   );
 }
 
+function AttendanceTab() {
+  const today = new Date().toISOString().slice(0, 10);
+  const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+  const [start, setStart] = useState(firstOfMonth);
+  const [end, setEnd] = useState(today);
+  const { data, loading, error, refetch } = useApiResource<AttendanceSummaryRow[]>(
+    () => attendanceService.getSummary(start, end),
+    [start, end]
+  );
+
+  const columns: Column<AttendanceSummaryRow>[] = [
+    { header: 'Employee', render: (r) => <span className="font-medium">{r.employeeName}</span> },
+    { header: 'Days present', render: (r) => r.daysPresent, align: 'right' },
+    { header: 'Absences', render: (r) => r.daysAbsent, align: 'right' },
+    { header: 'Day off', render: (r) => r.daysOff, align: 'right' },
+    { header: 'Late (min)', render: (r) => r.totalMinutesLate, align: 'right' },
+    { header: 'Overtime (min)', render: (r) => r.totalOvertimeMinutes, align: 'right' },
+  ];
+
+  return (
+    <div className="rounded-xl border border-line bg-surface p-5 shadow-sm">
+      <h3 className="text-sm font-semibold text-ink-900">Attendance Summary</h3>
+      <p className="mb-4 text-xs text-ink-500">Read-only totals for the selected period</p>
+
+      <div className="mb-4 flex items-center gap-3">
+        <input
+          type="date"
+          value={start}
+          onChange={(e) => setStart(e.target.value)}
+          className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink-900 outline-none focus:border-teal-500"
+        />
+        <span className="text-sm text-ink-500">to</span>
+        <input
+          type="date"
+          value={end}
+          onChange={(e) => setEnd(e.target.value)}
+          className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink-900 outline-none focus:border-teal-500"
+        />
+      </div>
+
+      {loading && <LoadingState label="Loading attendance…" />}
+      {!loading && error && <ErrorState message={error} onRetry={refetch} />}
+      {!loading && !error && data && data.length === 0 && (
+        <EmptyState icon={Users} title="No records" description="No attendance records for this period." />
+      )}
+      {!loading && !error && data && data.length > 0 && (
+        <DataTable columns={columns} rows={data} rowKey={(r) => r.employeeId} />
+      )}
+    </div>
+  );
+}
+
+function DeductionsTab() {
+  const { data: runs, loading: runsLoading } = useApiResource<PayrollRun[]>(
+    () => payrollService.listRuns(),
+    []
+  );
+  const [runId, setRunId] = useState<string>('');
+  const selectedRunId = runId || runs?.[0]?.id || '';
+  const { data, loading, error, refetch } = useApiResource<Payslip[]>(
+    () => (selectedRunId ? payrollService.listPayslips(selectedRunId) : Promise.resolve([])),
+    [selectedRunId]
+  );
+
+  const columns: Column<Payslip>[] = [
+    { header: 'Employee', render: (r) => <span className="font-medium">{r.employeeName}</span> },
+    { header: 'SSS', render: (r) => formatCurrency(r.sssContribution), align: 'right' },
+    { header: 'PhilHealth', render: (r) => formatCurrency(r.philHealthContribution), align: 'right' },
+    { header: 'Pag-IBIG', render: (r) => formatCurrency(r.hdmfContribution), align: 'right' },
+    { header: 'Withholding tax', render: (r) => formatCurrency(r.withholdingTax), align: 'right' },
+    { header: 'Net salary', render: (r) => <span className="font-semibold">{formatCurrency(r.netSalary)}</span>, align: 'right' },
+  ];
+
+  return (
+    <div className="rounded-xl border border-line bg-surface p-5 shadow-sm">
+      <h3 className="text-sm font-semibold text-ink-900">Deductions</h3>
+      <p className="mb-4 text-xs text-ink-500">Computed deductions per payroll run</p>
+
+      <div className="mb-4">
+        <select
+          value={selectedRunId}
+          onChange={(e) => setRunId(e.target.value)}
+          className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink-900 outline-none focus:border-teal-500"
+        >
+          {runsLoading && <option>Loading runs…</option>}
+          {runs?.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.cutoffLabel}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {loading && <LoadingState label="Loading deductions…" />}
+      {!loading && error && <ErrorState message={error} onRetry={refetch} />}
+      {!loading && !error && (!data || data.length === 0) && (
+        <EmptyState icon={Users} title="No data" description="No computed payslips for this run yet." />
+      )}
+      {!loading && !error && data && data.length > 0 && (
+        <DataTable columns={columns} rows={data} rowKey={(r) => r.id} />
+      )}
+    </div>
+  );
+}
+
 export function Employees() {
   const { data: currentUser } = useCurrentUser();
   const canDelete = isAdmin(currentUser);
+  const [tab, setTab] = useState<'directory' | 'attendance' | 'deductions'>('directory');
   const { data, loading, error, refetch } = useApiResource(() => employeeService.list(), []);
   const [showNew, setShowNew] = useState(false);
   const [viewingEmployee, setViewingEmployee] = useState<Employee | null>(null);
@@ -544,6 +633,27 @@ export function Employees() {
 
   return (
     <Layout title="Employees" subtitle="Directory &amp; profiles">
+          <div className="mb-6 flex w-fit rounded-lg border border-line bg-surface p-1">
+        {(
+          [
+            { key: 'directory', label: 'Directory' },
+            { key: 'attendance', label: 'Attendance' },
+            { key: 'deductions', label: 'Deductions' },
+          ] as const
+        ).map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`rounded-md px-4 py-2 text-sm font-semibold transition ${
+              tab === t.key ? 'bg-navy-900 text-white' : 'text-ink-500 hover:bg-sand-100'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+            {tab === 'directory' && (
+              <>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-ink-900">Employee Management</h2>
@@ -638,6 +748,11 @@ export function Employees() {
           <DataTable columns={columns} rows={filtered} rowKey={(r) => r.id} />
         )}
       </div>
+      </>
+      )}
+
+            {tab === 'attendance' && <AttendanceTab />}
+            {tab === 'deductions' && <DeductionsTab />}
 
       {showNew && (
         <EmployeeFormModal

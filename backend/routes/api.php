@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AnalyticsController;
-use App\Http\Controllers\Api\AttendanceSummaryController;
+use App\Http\Controllers\Api\AttendanceRecordController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BenefitEnrollmentController;
 use App\Http\Controllers\Api\BenefitPlanController;
@@ -54,13 +54,25 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/employees/{employee}', [EmployeeController::class, 'update']);
         Route::delete('/employees/{employee}', [EmployeeController::class, 'destroy'])->middleware('role:admin');
 
+        // ---------- Timesheet (Attendance) ----------
+        // The real source of attendance for payroll — a per-cutoff grid,
+        // day-by-day per employee. Each day locks individually once saved;
+        // submitting the whole timesheet locks the entire cutoff, and
+        // payroll cannot be computed until that happens (see
+        // PayrollRunController::compute()).
+        Route::get('/payroll/runs/{payrollRun}/attendance-records', [AttendanceRecordController::class, 'indexForRun']);
+        Route::post('/payroll/runs/{payrollRun}/attendance-records', [AttendanceRecordController::class, 'storeForRun']);
+        Route::post('/payroll/runs/{payrollRun}/attendance-records/submit', [AttendanceRecordController::class, 'submit']);
+
+        // Read-only date-range summary for the Employees page Attendance tab.
+        Route::get('/attendance/summary', [AttendanceRecordController::class, 'summaryForPeriod']);
+
         // ---------- Payroll Management ----------
         // HR prepares and computes runs; final approval/release (which triggers
         // payslip emailing) and destructive actions stay with Admin.
         Route::get('/payroll/runs', [PayrollRunController::class, 'index']);
         Route::post('/payroll/runs', [PayrollRunController::class, 'store']);
         Route::get('/payroll/runs/{payrollRun}', [PayrollRunController::class, 'show']);
-        Route::get('/payroll/runs/{payrollRun}/attendance', [AttendanceSummaryController::class, 'indexForRun']);
         Route::post('/payroll/runs/{payrollRun}/compute', [PayrollRunController::class, 'compute']);
         Route::post('/payroll/runs/{payrollRun}/approve', [PayrollRunController::class, 'approve'])->middleware('role:admin');
         Route::post('/payroll/runs/{payrollRun}/release', [PayrollRunController::class, 'release'])->middleware('role:admin');

@@ -19,7 +19,10 @@ class AttendanceRecordResource extends JsonResource
             'statusOut' => $this->status_out,
             'minutesLate' => (int) $this->minutes_late,
             'overtimeMinutes' => (int) $this->overtime_minutes,
-            'holidayType' => $this->holiday_type,
+                        'holidayType' => $this->holiday_type,
+            'payrollRunId' => $this->payroll_run_id,
+            'status' => $this->status,
+            'isLocked' => $this->resource->exists,
         ];
     }
 }

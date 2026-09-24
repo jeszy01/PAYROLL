@@ -11,8 +11,8 @@ class AttendanceRecord extends Model
     use HasUuids;
      protected $connection = 'attendance';
 
-    protected $fillable = [
-        'employee_id', 'date', 'timestamp_in', 'timestamp_out',
+        protected $fillable = [
+        'employee_id', 'payroll_run_id', 'date', 'status', 'timestamp_in', 'timestamp_out',
         'status_in', 'status_out', 'minutes_late', 'overtime_minutes', 'holiday_type',
     ];
 

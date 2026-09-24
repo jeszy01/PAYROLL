@@ -124,6 +124,12 @@ class PayrollRunController extends Controller
             ], 422);
         }
 
+        if (! $payrollRun->timesheetIsLocked()) {
+            return response()->json([
+                'message' => 'Submit and lock the timesheet for this cutoff before computing payroll.',
+            ], 422);
+        }
+
         // Simplified statutory rates — see NOTE above.
         $sssRate = 0.045;        // 4.5% of Total Salary, employee share (simplified)
         $philhealthRate = 0.025; // 2.5% of Total Salary, employee share (simplified)

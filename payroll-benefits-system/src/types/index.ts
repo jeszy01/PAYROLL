@@ -78,6 +78,10 @@ export interface PayrollRun {
   payDate: string;
   cutoffLabel: string;
   status: PayrollRunStatus;
+  // Set once HR submits/locks the timesheet for this cutoff. Every
+  // attendance row becomes read-only once this is non-null, and payroll
+  // cannot be computed until it is set.
+  timesheetSubmittedAt: string | null;
   isArchived: boolean;
   totalEmployees: number;
   grossTotal: number;
@@ -162,7 +166,52 @@ export interface AttendanceSummary {
 
 // ---------- Compensation Planning ----------
 
-export interface SalaryGrade {
+// ---------- Attendance / Timesheet ----------
+
+export type HolidayType = 'regular' | 'special_non_working';
+export type ClockInStatus = 'on_time' | 'late';
+export type ClockOutStatus = 'on_time' | 'overtime';
+export type TimesheetDayStatus = 'present' | 'absent' | 'day_off';
+
+export interface AttendanceRecord {
+  id: ID;
+  employeeId: ID;
+  payrollRunId?: ID | null;
+  date: string; // ISO date
+  status?: TimesheetDayStatus | null;
+  timestampIn: string | null;
+  timestampOut: string | null;
+  statusIn: ClockInStatus | null;
+  statusOut: ClockOutStatus | null;
+  minutesLate: number;
+  overtimeMinutes: number;
+  holidayType: HolidayType | null;
+  isLocked: boolean;
+}
+
+export interface TimesheetEmployeeRow {
+  employeeId: ID;
+  employeeName: string;
+  days: AttendanceRecord[];
+}
+
+export interface TimesheetForRun {
+  isLocked: boolean;
+  timesheetSubmittedAt: string | null;
+  sheet: TimesheetEmployeeRow[];
+}
+
+export interface AttendanceSummaryRow {
+  employeeId: ID;
+  employeeName: string;
+  daysPresent: number;
+  daysAbsent: number;
+  daysOff: number;
+  totalMinutesLate: number;
+  totalOvertimeMinutes: number;
+}
+
+
   id: ID;
   gradeCode: string;
   gradeName: string;
@@ -263,32 +312,6 @@ export interface BenefitsUtilizationPoint {
   planName: string;
   enrolled: number;
   capacity: number;
-}
-
-// ---------- Employee Self-Service: Attendance ----------
-
-export type HolidayType = 'regular' | 'special_non_working';
-export type ClockInStatus = 'on_time' | 'late';
-export type ClockOutStatus = 'on_time' | 'overtime';
-
-export interface AttendanceRecord {
-  id: ID;
-  employeeId: ID;
-  date: string; // ISO date
-  timestampIn: string | null;
-  timestampOut: string | null;
-  statusIn: ClockInStatus | null;
-  statusOut: ClockOutStatus | null;
-  minutesLate: number;
-  overtimeMinutes: number;
-  holidayType: HolidayType | null;
-}
-
-export interface TodayAttendance {
-  record: AttendanceRecord | null;
-  shiftStart: string; // "HH:mm:ss"
-  shiftEnd: string; // "HH:mm:ss"
-  holiday: { name: string; type: HolidayType } | null;
 }
 
 export interface AnalyticsSummary {

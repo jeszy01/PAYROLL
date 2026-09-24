@@ -12,7 +12,7 @@ import { AnomalyPanel } from '../components/payroll/AnomalyPanel';
 import { useApiResource } from '../hooks/useApiResource';
 import { useCurrentUser, isAdmin } from '../hooks/useCurrentUser';
 import { payrollService } from '../services/payroll.service';
-import type { PayrollRun, Payslip, AttendanceSummary } from '../types';
+import type { PayrollRun, Payslip, AttendanceSummary, AttendanceSheetRow } from '../types';
 import { formatCurrency, formatDate } from '../utils/format';
 
 /** "⚠️ X anomalies detected" — shared by the run list and the run detail view. */
@@ -100,13 +100,179 @@ function NewRunModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
   );
 }
 
+
+function AttendanceRecordsPanel({ run }: { run: PayrollRun }) {
+  const { data, loading, error, refetch } = useApiResource<AttendanceSheetRow[]>(
+    () => payrollService.listAttendanceRecords(run.id),
+    [run.id]
+  );
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, { status: string; minutesLate: number; overtimeMinutes: number }>>({});
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  function dayKey(employeeId: string, date: string) {
+    return `${employeeId}__${date}`;
+  }
+
+  function draftFor(day: AttendanceRecord) {
+    const key = dayKey(day.employeeId, day.date);
+    return drafts[key] ?? { status: day.status ?? 'present', minutesLate: day.minutesLate, overtimeMinutes: day.overtimeMinutes };
+  }
+
+  function updateDraft(day: AttendanceRecord, field: 'status' | 'minutesLate' | 'overtimeMinutes', value: string | number) {
+    if (day.isLocked) return;
+    const key = dayKey(day.employeeId, day.date);
+    setDrafts((prev) => ({ ...prev, [key]: { ...draftFor(day), [field]: value } }));
+  }
+
+  async function saveDay(day: AttendanceRecord) {
+    if (day.isLocked) return;
+    const key = dayKey(day.employeeId, day.date);
+    const draft = draftFor(day);
+    setSavingKey(key);
+    setSaveError(null);
+    try {
+      await payrollService.saveAttendanceRecord(run.id, {
+        employeeId: day.employeeId,
+        date: day.date,
+        status: draft.status as 'present' | 'absent' | 'day_off',
+        minutesLate: draft.minutesLate,
+        overtimeMinutes: draft.overtimeMinutes,
+      });
+      await refetch();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Could not save this day.');
+    } finally {
+      setSavingKey(null);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-line bg-teal-100/40 p-4 text-sm text-ink-900">
+        <p className="font-semibold">Daily attendance (DTR)</p>
+        <p className="mt-1 text-ink-500">
+          Click an employee to record attendance day by day. Once a day is saved it is locked and can no longer be
+          changed — this keeps the attendance record tamper-proof.
+        </p>
+      </div>
+
+      {loading && <LoadingState label="Loading employees…" />}
+      {!loading && error && <ErrorState message={error} onRetry={refetch} />}
+      {!loading && !error && (!data || data.length === 0) && (
+        <EmptyState
+          icon={ClipboardList}
+          title="No active employees"
+          description="Add active employees in the Employees module before recording attendance."
+        />
+      )}
+      {!loading && !error && data && data.length > 0 && (
+        <div className="space-y-2">
+          {saveError && <p className="text-sm text-bad-600">{saveError}</p>}
+          {data.map((row) => {
+            const isOpen = expandedId === row.employeeId;
+            const lockedCount = row.days.filter((d) => d.isLocked).length;
+            return (
+              <div key={row.employeeId} className="overflow-hidden rounded-xl border border-line bg-surface">
+                <button
+                  onClick={() => setExpandedId(isOpen ? null : row.employeeId)}
+                  className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-sand-50/60"
+                >
+                  <span className="font-medium text-ink-900">{row.employeeName}</span>
+                  <span className="text-xs text-ink-500">
+                    {lockedCount} / {row.days.length} days saved
+                  </span>
+                </button>
+                {isOpen && (
+                  <div className="border-t border-line">
+                    <table className="w-full text-left text-sm">
+                      <thead>
+                        <tr className="border-b border-line bg-sand-50/70">
+                          <th className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-ink-500">Date</th>
+                          <th className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-ink-500">Status</th>
+                          <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-ink-500">Late (min)</th>
+                          <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-ink-500">OT (min)</th>
+                          <th className="px-4 py-2" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {row.days.map((day) => {
+                          const key = dayKey(day.employeeId, day.date);
+                          const draft = draftFor(day);
+                          return (
+                            <tr key={key} className="border-b border-line last:border-0">
+                              <td className="px-4 py-2 text-ink-900">{formatDate(day.date)}</td>
+                              <td className="px-4 py-2">
+                                <select
+                                  value={draft.status}
+                                  disabled={day.isLocked}
+                                  onChange={(e) => updateDraft(day, 'status', e.target.value)}
+                                  className="rounded-lg border border-line px-2 py-1 text-sm outline-none focus:border-teal-500 disabled:cursor-not-allowed disabled:bg-sand-50 disabled:text-ink-300"
+                                >
+                                  <option value="present">Present</option>
+                                  <option value="absent">Absent</option>
+                                  <option value="day_off">Day off</option>
+                                </select>
+                              </td>
+                              <td className="px-4 py-2 text-right">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={draft.minutesLate}
+                                  disabled={day.isLocked}
+                                  onChange={(e) => updateDraft(day, 'minutesLate', Number(e.target.value))}
+                                  className="w-20 rounded-lg border border-line px-2 py-1 text-right text-sm outline-none focus:border-teal-500 disabled:cursor-not-allowed disabled:bg-sand-50 disabled:text-ink-300"
+                                />
+                              </td>
+                              <td className="px-4 py-2 text-right">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={draft.overtimeMinutes}
+                                  disabled={day.isLocked}
+                                  onChange={(e) => updateDraft(day, 'overtimeMinutes', Number(e.target.value))}
+                                  className="w-20 rounded-lg border border-line px-2 py-1 text-right text-sm outline-none focus:border-teal-500 disabled:cursor-not-allowed disabled:bg-sand-50 disabled:text-ink-300"
+                                />
+                              </td>
+                              <td className="px-4 py-2 text-right">
+                                {day.isLocked ? (
+                                  <span className="rounded-full bg-sand-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-500">
+                                    Locked
+                                  </span>
+                                ) : savingKey === key ? (
+                                  <span className="text-xs text-ink-300">Saving…</span>
+                                ) : (
+                                  <button
+                                    onClick={() => saveDay(day)}
+                                    className="rounded-lg bg-navy-900 px-3 py-1 text-xs font-semibold text-white transition hover:bg-navy-800"
+                                  >
+                                    Save
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
- * Attendance input step for a draft run. In a full HRIS this data would
- * come from a separate Time & Attendance / Workforce Management system —
- * here it's entered directly as a stand-in, since this subsystem only
- * needs the per-employee totals to compute payroll.
+ * Cutoff-level adjustments (cash advance, tax refund, SL-cash conversion)
+ * plus the Compute button. This still uses the old AttendanceSummary
+ * table — unchanged from before.
  */
-function AttendancePanel({ run, onComputed }: { run: PayrollRun; onComputed: () => void }) {
+function AttendanceAdjustmentsPanel({ run, onComputed }: { run: PayrollRun; onComputed: () => void }) {
   const { data, loading, error, refetch } = useApiResource<AttendanceSummary[]>(
     () => payrollService.listAttendance(run.id),
     [run.id]
@@ -119,10 +285,12 @@ function AttendancePanel({ run, onComputed }: { run: PayrollRun; onComputed: () 
   const list = data ? data.map((r) => rows[r.employeeId] ?? r) : [];
 
   function updateField(row: AttendanceSummary, field: keyof AttendanceSummary, value: number) {
+    if (row.isLocked) return;
     setRows((prev) => ({ ...prev, [row.employeeId]: { ...row, ...prev[row.employeeId], [field]: value } }));
   }
 
   async function saveRow(row: AttendanceSummary) {
+    if (row.isLocked) return;
     setSavingId(row.employeeId);
     try {
       await payrollService.saveAttendance(run.id, {
@@ -135,6 +303,7 @@ function AttendancePanel({ run, onComputed }: { run: PayrollRun; onComputed: () 
         taxRefund: row.taxRefund,
         slCashConversion: row.slCashConversion,
       });
+      refetch();
     } finally {
       setSavingId(null);
     }
@@ -154,114 +323,39 @@ function AttendancePanel({ run, onComputed }: { run: PayrollRun; onComputed: () 
     }
   }
 
+  function numberField(r: AttendanceSummary, field: keyof AttendanceSummary, opts: { min?: number; max?: number; step?: number; width?: string } = {}) {
+    return (
+      <input
+        type="number"
+        min={opts.min ?? 0}
+        max={opts.max}
+        step={opts.step ?? 1}
+        value={r[field] as number}
+        disabled={r.isLocked}
+        onChange={(e) => updateField(r, field, Number(e.target.value))}
+        onBlur={() => saveRow(rows[r.employeeId] ?? r)}
+        className={`${opts.width ?? 'w-20'} rounded-lg border border-line px-2 py-1 text-right text-sm outline-none focus:border-teal-500 disabled:cursor-not-allowed disabled:bg-sand-50 disabled:text-ink-300`}
+      />
+    );
+  }
+
   const columns: Column<AttendanceSummary>[] = [
-    { header: 'Employee', render: (r) => <span className="font-medium">{r.employeeName}</span> },
     {
-      header: 'Days present',
+      header: 'Employee',
       render: (r) => (
-        <input
-          type="number"
-          min={0}
-          max={31}
-          step={0.5}
-          value={r.daysPresent}
-          onChange={(e) => updateField(r, 'daysPresent', Number(e.target.value))}
-          onBlur={() => saveRow(rows[r.employeeId] ?? r)}
-          className="w-20 rounded-lg border border-line px-2 py-1 text-right text-sm outline-none focus:border-teal-500"
-        />
+        <div className="flex items-center gap-2">
+          <span className="font-medium">{r.employeeName}</span>
+          {r.isLocked && (
+            <span className="rounded-full bg-sand-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-500">
+              Locked
+            </span>
+          )}
+        </div>
       ),
-      align: 'right',
     },
-    {
-      header: 'Late (min)',
-      render: (r) => (
-        <input
-          type="number"
-          min={0}
-          value={r.lateMinutes}
-          onChange={(e) => updateField(r, 'lateMinutes', Number(e.target.value))}
-          onBlur={() => saveRow(rows[r.employeeId] ?? r)}
-          className="w-20 rounded-lg border border-line px-2 py-1 text-right text-sm outline-none focus:border-teal-500"
-        />
-      ),
-      align: 'right',
-    },
-    {
-      header: 'Overtime (hrs)',
-      render: (r) => (
-        <input
-          type="number"
-          min={0}
-          step={0.5}
-          value={r.overtimeHours}
-          onChange={(e) => updateField(r, 'overtimeHours', Number(e.target.value))}
-          onBlur={() => saveRow(rows[r.employeeId] ?? r)}
-          className="w-20 rounded-lg border border-line px-2 py-1 text-right text-sm outline-none focus:border-teal-500"
-        />
-      ),
-      align: 'right',
-    },
-    {
-      header: 'Unpaid absences',
-      render: (r) => (
-        <input
-          type="number"
-          min={0}
-          max={31}
-          step={0.5}
-          value={r.unpaidAbsenceDays}
-          onChange={(e) => updateField(r, 'unpaidAbsenceDays', Number(e.target.value))}
-          onBlur={() => saveRow(rows[r.employeeId] ?? r)}
-          className="w-24 rounded-lg border border-line px-2 py-1 text-right text-sm outline-none focus:border-teal-500"
-        />
-      ),
-      align: 'right',
-    },
-    {
-      header: 'Cash advance',
-      render: (r) => (
-        <input
-          type="number"
-          min={0}
-          step={0.01}
-          value={r.cashAdvance}
-          onChange={(e) => updateField(r, 'cashAdvance', Number(e.target.value))}
-          onBlur={() => saveRow(rows[r.employeeId] ?? r)}
-          className="w-24 rounded-lg border border-line px-2 py-1 text-right text-sm outline-none focus:border-teal-500"
-        />
-      ),
-      align: 'right',
-    },
-    {
-      header: 'Tax refund',
-      render: (r) => (
-        <input
-          type="number"
-          min={0}
-          step={0.01}
-          value={r.taxRefund}
-          onChange={(e) => updateField(r, 'taxRefund', Number(e.target.value))}
-          onBlur={() => saveRow(rows[r.employeeId] ?? r)}
-          className="w-24 rounded-lg border border-line px-2 py-1 text-right text-sm outline-none focus:border-teal-500"
-        />
-      ),
-      align: 'right',
-    },
-    {
-      header: 'SL - Cash conversion',
-      render: (r) => (
-        <input
-          type="number"
-          min={0}
-          step={0.01}
-          value={r.slCashConversion}
-          onChange={(e) => updateField(r, 'slCashConversion', Number(e.target.value))}
-          onBlur={() => saveRow(rows[r.employeeId] ?? r)}
-          className="w-24 rounded-lg border border-line px-2 py-1 text-right text-sm outline-none focus:border-teal-500"
-        />
-      ),
-      align: 'right',
-    },
+    { header: 'Cash advance', render: (r) => numberField(r, 'cashAdvance', { step: 0.01, width: 'w-24' }), align: 'right' },
+    { header: 'Tax refund', render: (r) => numberField(r, 'taxRefund', { step: 0.01, width: 'w-24' }), align: 'right' },
+    { header: 'SL - Cash conversion', render: (r) => numberField(r, 'slCashConversion', { step: 0.01, width: 'w-24' }), align: 'right' },
     {
       header: '',
       render: (r) => (savingId === r.employeeId ? <span className="text-xs text-ink-300">Saving…</span> : null),
@@ -270,13 +364,11 @@ function AttendancePanel({ run, onComputed }: { run: PayrollRun; onComputed: () 
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-line bg-teal-100/40 p-4 text-sm text-ink-900">
-        <p className="font-semibold">Attendance &amp; adjustments for this cutoff</p>
+      <div className="rounded-xl border border-line bg-sand-100/40 p-4 text-sm text-ink-900">
+        <p className="font-semibold">Cutoff adjustments</p>
         <p className="mt-1 text-ink-500">
-          Since this isn't connected to a Time &amp; Attendance system yet, every employee is automatically
-          filled in with full attendance for this cutoff. Only edit the employees who had lates, absences, or
-          overtime, plus any one-off amounts for this cutoff (cash advance, tax refund, SL-cash conversion) —
-          everyone else is ready to compute as-is.
+           One-off amounts for this cutoff — cash advance, tax refund, SL-cash conversion. Days present, late, and
+          overtime come from the recorded attendance.
         </p>
       </div>
 
@@ -308,6 +400,181 @@ function AttendancePanel({ run, onComputed }: { run: PayrollRun; onComputed: () 
     </div>
   );
 }
+
+/**
+ * NEW: read-only Review Breakdown, shown once every employee's attendance
+ * for this cutoff is fully saved (all days locked). This replaces the
+ * editable DTR + adjustments panels — nothing here can be edited, matching
+ * "hindi na siya pwede ma-edit" once attendance encoding is done.
+ *
+ * Sections: Attendance, Deductions, Claims (per the whiteboard sketch) —
+ * add more sections here the same way as the payroll model grows.
+ */
+function ReviewBreakdownPanel({ run, onComputed }: { run: PayrollRun; onComputed: () => void }) {
+  const { data: attendanceRows, loading: attLoading, error: attError } = useApiResource<AttendanceSheetRow[]>(
+    () => payrollService.listAttendanceRecords(run.id),
+    [run.id]
+  );
+  const { data: adjustments, loading: adjLoading, error: adjError } = useApiResource<AttendanceSummary[]>(
+    () => payrollService.listAttendance(run.id),
+    [run.id]
+  );
+  const [openSection, setOpenSection] = useState<string | null>('attendance');
+  const [computing, setComputing] = useState(false);
+  const [computeError, setComputeError] = useState<string | null>(null);
+
+  const periodLabel = `${formatDate(run.payPeriodStart)} – ${formatDate(run.payPeriodEnd)}`;
+
+  function toggle(section: string) {
+    setOpenSection((prev) => (prev === section ? null : section));
+  }
+
+  async function handleCompute() {
+    setComputing(true);
+    setComputeError(null);
+    try {
+      await payrollService.computeRun(run.id);
+      onComputed();
+    } catch (err) {
+      setComputeError(err instanceof Error ? err.message : 'Could not compute this payroll run.');
+    } finally {
+      setComputing(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-line bg-teal-100/40 p-4 text-sm text-ink-900">
+        <p className="font-semibold">Review breakdown</p>
+        <p className="mt-1 text-ink-500">
+          Attendance for this cutoff is fully recorded and locked. Review the breakdown below before computing
+          payroll — none of it can be edited from here.
+        </p>
+      </div>
+
+      {/* Attendance */}
+      <div className="overflow-hidden rounded-xl border border-line bg-surface">
+        <button
+          onClick={() => toggle('attendance')}
+          className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-sand-50/60"
+        >
+          <span className="font-semibold text-ink-900">Attendance</span>
+          <span className="text-xs text-ink-500">{periodLabel}</span>
+        </button>
+        {openSection === 'attendance' && (
+          <div className="border-t border-line">
+            {attLoading && <LoadingState label="Loading attendance…" />}
+            {!attLoading && attError && <ErrorState message={attError} />}
+            {!attLoading && !attError && attendanceRows && attendanceRows.length > 0 && (
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-line bg-sand-50/70">
+                    <th className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-ink-500">Employee</th>
+                    <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-ink-500">Present</th>
+                    <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-ink-500">Absent</th>
+                    <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-ink-500">Day off</th>
+                    <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-ink-500">Late (min)</th>
+                    <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-ink-500">OT (min)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attendanceRows.map((row) => {
+                    const present = row.days.filter((d) => d.status === 'present').length;
+                    const absent = row.days.filter((d) => d.status === 'absent').length;
+                    const dayOff = row.days.filter((d) => d.status === 'day_off').length;
+                    const late = row.days.reduce((sum, d) => sum + d.minutesLate, 0);
+                    const ot = row.days.reduce((sum, d) => sum + d.overtimeMinutes, 0);
+                    return (
+                      <tr key={row.employeeId} className="border-b border-line last:border-0">
+                        <td className="px-4 py-2 font-medium text-ink-900">{row.employeeName}</td>
+                        <td className="px-4 py-2 text-right text-ink-900">{present}</td>
+                        <td className="px-4 py-2 text-right text-ink-900">{absent}</td>
+                        <td className="px-4 py-2 text-right text-ink-900">{dayOff}</td>
+                        <td className="px-4 py-2 text-right text-ink-900">{late}</td>
+                        <td className="px-4 py-2 text-right text-ink-900">{ot}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Deductions */}
+      <div className="overflow-hidden rounded-xl border border-line bg-surface">
+        <button
+          onClick={() => toggle('deductions')}
+          className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-sand-50/60"
+        >
+          <span className="font-semibold text-ink-900">Deductions</span>
+          <span className="text-xs text-ink-500">{periodLabel}</span>
+        </button>
+        {openSection === 'deductions' && (
+          <div className="border-t border-line">
+            {adjLoading && <LoadingState label="Loading deductions…" />}
+            {!adjLoading && adjError && <ErrorState message={adjError} />}
+            {!adjLoading && !adjError && adjustments && adjustments.length > 0 && (
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-line bg-sand-50/70">
+                    <th className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-ink-500">Employee</th>
+                    <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-ink-500">Cash advance</th>
+                    <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-ink-500">Tax refund</th>
+                    <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-ink-500">SL - Cash conversion</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {adjustments.map((r) => (
+                    <tr key={r.employeeId} className="border-b border-line last:border-0">
+                      <td className="px-4 py-2 font-medium text-ink-900">{r.employeeName}</td>
+                      <td className="px-4 py-2 text-right text-ink-900">{formatCurrency(r.cashAdvance)}</td>
+                      <td className="px-4 py-2 text-right text-ink-900">{formatCurrency(r.taxRefund)}</td>
+                      <td className="px-4 py-2 text-right text-ink-900">{formatCurrency(r.slCashConversion)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Claims — TODO: wire this up once there's a per-run claims/reimbursement
+          endpoint (e.g. payrollService.listClaimsForRun(run.id)); leaving the
+          section here so the layout matches the sketch. */}
+      <div className="overflow-hidden rounded-xl border border-line bg-surface">
+        <button
+          onClick={() => toggle('claims')}
+          className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-sand-50/60"
+        >
+          <span className="font-semibold text-ink-900">Claims</span>
+          <span className="text-xs text-ink-500">{periodLabel}</span>
+        </button>
+        {openSection === 'claims' && (
+          <div className="border-t border-line px-4 py-6 text-sm text-ink-500">
+            Claims &amp; reimbursement figures for this cutoff aren't wired into this view yet.
+          </div>
+        )}
+      </div>
+
+      {computeError && <p className="text-sm text-bad-600">{computeError}</p>}
+      <div className="flex justify-end">
+        <button
+          onClick={handleCompute}
+          disabled={computing}
+          className="flex items-center gap-2 rounded-lg bg-navy-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-navy-800 disabled:opacity-50"
+        >
+          <Calculator size={16} />
+          {computing ? 'Computing…' : 'Compute payroll'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
 
 function SendChannelMenu({
   onSend,
@@ -681,7 +948,7 @@ export function PayrollManagement() {
       render: (r) => (
         <div className="flex items-center justify-end gap-3">
           <button onClick={() => setSelectedRunId(r.id)} className="text-sm font-semibold text-teal-700 hover:underline">
-            {r.status === 'draft' ? 'Enter attendance' : 'View payslips'}
+              {r.status === 'draft' ? 'Generate payroll' : 'View payslips'}
           </button>
           {canManageRuns && (tab === 'active' ? (
             <>
@@ -724,7 +991,7 @@ export function PayrollManagement() {
   ];
 
   return (
-    <Layout title="Payroll Management" subtitle="Enter attendance, compute payroll, and review payslips">
+    <Layout title="Payroll Management" subtitle="Compute payroll and review payslips">
       {selectedRun ? (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -742,7 +1009,7 @@ export function PayrollManagement() {
           </div>
 
           {selectedRun.status === 'draft' ? (
-            <AttendancePanel run={selectedRun} onComputed={refetch} />
+            <AttendanceAdjustmentsPanel run={selectedRun} onComputed={refetch} />
           ) : (
             <PayslipsPanel run={selectedRun} onRunUpdated={refetch} />
           )}

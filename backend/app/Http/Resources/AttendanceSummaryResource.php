@@ -21,6 +21,7 @@ class AttendanceSummaryResource extends JsonResource
             'cashAdvance' => (float) $this->cash_advance,
             'taxRefund' => (float) $this->tax_refund,
             'slCashConversion' => (float) $this->sl_cash_conversion,
+            'isLocked' => $this->resource->exists,
         ];
     }
 }

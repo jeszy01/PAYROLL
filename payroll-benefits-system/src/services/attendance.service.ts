@@ -1,9 +1,16 @@
 import { apiClient } from './apiClient';
-import type { AttendanceRecord, TodayAttendance } from '../types';
+import type { AttendanceSheetRow, AttendanceRecord, AttendanceSummaryRow } from '../types';
 
 export const attendanceService = {
-  getToday: () => apiClient.get<TodayAttendance>('/me/attendance/today'),
-  clockIn: () => apiClient.post<AttendanceRecord>('/me/attendance/clock-in'),
-  clockOut: () => apiClient.post<AttendanceRecord>('/me/attendance/clock-out'),
-  getHistory: () => apiClient.get<AttendanceRecord[]>('/me/attendance/history'),
+  getSheet: (start: string, end: string) =>
+    apiClient.get<AttendanceSheetRow[]>(`/attendance/sheet?start=${start}&end=${end}`),
+  saveDay: (payload: {
+    employeeId: string;
+    date: string;
+    status: 'present' | 'absent' | 'day_off';
+    minutesLate: number;
+    overtimeMinutes: number;
+  }) => apiClient.post<AttendanceRecord>('/attendance/sheet', payload),
+   getSummary: (start: string, end: string) =>
+    apiClient.get<AttendanceSummaryRow[]>(`/attendance/summary?start=${start}&end=${end}`),
 };

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Dashboard } from './pages/Dashboard';
 import { Employees } from './pages/Employees';
+import { TimesheetManagement } from './pages/TimesheetManagement';
 import { UserManagement } from './pages/UserManagement';
 import { PayrollManagement } from './pages/PayrollManagement';
 import { CompensationPlanning } from './pages/CompensationPlanning';
@@ -55,6 +56,14 @@ function App() {
               <RequireAdmin>
                 <UserManagement />
               </RequireAdmin>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/attendance"
+          element={
+            <RequireAuth>
+              <TimesheetManagement />
             </RequireAuth>
           }
         />

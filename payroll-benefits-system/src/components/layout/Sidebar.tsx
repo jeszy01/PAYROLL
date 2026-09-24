@@ -67,8 +67,7 @@ export function Sidebar() {
       <stop offset="100%" stopColor="#16A34A" />
     </linearGradient>
   </defs>
-  <ellipse cx="50" cy="50" rx="46" ry="17" fill="none" stroke="url(#ring1)" strokeWidth="5" transform="rotate(-30 50 50)" />
-  <ellipse cx="50" cy="50" rx="46" ry="17" fill="none" stroke="url(#ring2)" strokeWidth="5" transform="rotate(30 50 50)" />
+  <ellipse cx="50" cy="50" rx="46" ry="17" fill="none" stroke="url(#ring1)" strokeWidth="5" transform="rotate(-30 50 50)" />  <ellipse cx="50" cy="50" rx="46" ry="17" fill="none" stroke="url(#ring2)" strokeWidth="5" transform="rotate(30 50 50)" />
   <ellipse cx="50" cy="50" rx="46" ry="17" fill="none" stroke="url(#ring3)" strokeWidth="5" transform="rotate(90 50 50)" />
   <ellipse cx="50" cy="50" rx="22" ry="12" fill="url(#nucleusGrad)" />
   <text x="50" y="54" textAnchor="middle" fontFamily="Arial, sans-serif" fontWeight="800" fontSize="11" fill="#FFFFFF">

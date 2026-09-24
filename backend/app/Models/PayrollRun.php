@@ -10,11 +10,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class PayrollRun extends Model
 {
     use HasUuids;
-       protected $connection = 'payroll';
+    protected $connection = 'payroll';
 
     protected $fillable = [
         'pay_period_start', 'pay_period_end', 'pay_date', 'cutoff_label',
-        'status', 'archived_at', 'total_employees', 'gross_total', 'deductions_total', 'net_total',
+        'status', 'timesheet_submitted_at', 'archived_at',
+        'total_employees', 'gross_total', 'deductions_total', 'net_total',
     ];
 
     protected function casts(): array
@@ -23,6 +24,7 @@ class PayrollRun extends Model
             'pay_period_start' => 'date',
             'pay_period_end' => 'date',
             'pay_date' => 'date',
+            'timesheet_submitted_at' => 'datetime',
             'archived_at' => 'datetime',
             'gross_total' => 'decimal:2',
             'deductions_total' => 'decimal:2',
@@ -40,11 +42,16 @@ class PayrollRun extends Model
         return $this->hasMany(PayrollAnomaly::class);
     }
 
+    /** Once the timesheet is submitted, every row for this run is locked. */
+    public function timesheetIsLocked(): bool
+    {
+        return $this->timesheet_submitted_at !== null;
+    }
+
     /**
      * Weekday count for this run's actual pay period (cutoffs are 26-9 vs
      * 10-25, so this isn't a fixed constant). Used both to compute payroll
-     * and as the "full attendance" default when a run has no real Time &
-     * Attendance system feeding it — see AttendanceSummaryController.
+     * and as the "full attendance" default for manual timesheet entry.
      */
     public function workingDays(): int
     {

@@ -16,6 +16,7 @@ class PayrollRunResource extends JsonResource
             'payDate' => $this->pay_date?->toDateString(),
             'cutoffLabel' => $this->cutoff_label,
             'status' => $this->status,
+            'timesheetSubmittedAt' => $this->timesheet_submitted_at?->toIso8601String(),
             'isArchived' => $this->archived_at !== null,
             'totalEmployees' => $this->total_employees,
             'grossTotal' => (float) $this->gross_total,
