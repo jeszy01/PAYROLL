@@ -15,7 +15,7 @@ class ClaimController extends Controller
     {
         return Http::withHeaders([
             'X-Internal-API-Key' => env('INTERNAL_API_KEY'),
-        ])->baseUrl('http://claims-service:8006');
+                ])->baseUrl(env('CLAIMS_SERVICE_URL', 'http://claims-service:8006'));
     }
 
     private function transform(array $row): array
