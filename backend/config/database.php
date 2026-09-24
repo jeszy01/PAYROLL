@@ -2,6 +2,22 @@
 
 use Illuminate\Support\Str;
 
+// Every service connection uses its own env vars if set,
+// otherwise falls back to the main DB_* settings (one shared database).
+$service = fn (string $prefix) => [
+    'driver' => 'pgsql',
+    'host' => env($prefix.'_DB_HOST', env('DB_HOST', 'postgres')),
+    'port' => env($prefix.'_DB_PORT', env('DB_PORT', '5432')),
+    'database' => env($prefix.'_DB_DATABASE', env('DB_DATABASE', 'payroll_benefits')),
+    'username' => env($prefix.'_DB_USERNAME', env('DB_USERNAME', 'payroll_user')),
+    'password' => env($prefix.'_DB_PASSWORD', env('DB_PASSWORD', '')),
+    'charset' => 'utf8',
+    'prefix' => '',
+    'prefix_indexes' => true,
+    'search_path' => 'public',
+    'sslmode' => 'prefer',
+];
+
 return [
     'default' => env('DB_CONNECTION', 'pgsql'),
 
@@ -23,8 +39,6 @@ return [
             'engine' => null,
         ],
 
-        // Kept in case you switch to Postgres/Docker later — unused
-        // unless DB_CONNECTION=pgsql in your .env.
         'pgsql' => [
             'driver' => 'pgsql',
             'url' => env('DB_URL'),
@@ -40,103 +54,13 @@ return [
             'sslmode' => 'prefer',
         ],
 
-        'employee' => [
-    'driver' => 'pgsql',
-    'host' => env('EMPLOYEE_DB_HOST', '127.0.0.1'),
-    'port' => env('EMPLOYEE_DB_PORT', '5432'),
-    'database' => env('EMPLOYEE_DB_DATABASE', 'employee_db'),
-    'username' => env('EMPLOYEE_DB_USERNAME', env('DB_USERNAME', 'payroll_user')),
-    'password' => env('EMPLOYEE_DB_PASSWORD', env('DB_PASSWORD', '')),
-    'charset' => 'utf8',
-    'prefix' => '',
-    'prefix_indexes' => true,
-    'search_path' => 'public',
-    'sslmode' => 'prefer',
-],
-
-        'auth' => [
-            'driver' => 'pgsql',
-            'host' => env('AUTH_DB_HOST', 'postgres'),
-            'port' => env('AUTH_DB_PORT', '5432'),
-            'database' => env('AUTH_DB_DATABASE', 'auth_db'),
-            'username' => env('AUTH_DB_USERNAME', env('DB_USERNAME', 'payroll_user')),
-            'password' => env('AUTH_DB_PASSWORD', env('DB_PASSWORD', '')),
-            'charset' => 'utf8',
-            'prefix' => '',
-            'prefix_indexes' => true,
-            'search_path' => 'public',
-            'sslmode' => 'prefer',
-        ],
-
-                'payroll' => [
-            'driver' => 'pgsql',
-            'host' => env('PAYROLL_DB_HOST', 'postgres'),
-            'port' => env('PAYROLL_DB_PORT', '5432'),
-            'database' => env('PAYROLL_DB_DATABASE', 'payroll_db'),
-            'username' => env('PAYROLL_DB_USERNAME', env('DB_USERNAME', 'payroll_user')),
-            'password' => env('PAYROLL_DB_PASSWORD', env('DB_PASSWORD', '')),
-            'charset' => 'utf8',
-            'prefix' => '',
-            'prefix_indexes' => true,
-            'search_path' => 'public',
-            'sslmode' => 'prefer',
-        ],
-
-                'attendance' => [
-            'driver' => 'pgsql',
-            'host' => env('ATTENDANCE_DB_HOST', 'postgres'),
-            'port' => env('ATTENDANCE_DB_PORT', '5432'),
-            'database' => env('ATTENDANCE_DB_DATABASE', 'attendance_db'),
-            'username' => env('ATTENDANCE_DB_USERNAME', env('DB_USERNAME', 'payroll_user')),
-            'password' => env('ATTENDANCE_DB_PASSWORD', env('DB_PASSWORD', '')),
-            'charset' => 'utf8',
-            'prefix' => '',
-            'prefix_indexes' => true,
-            'search_path' => 'public',
-            'sslmode' => 'prefer',
-        ],
-
-                'compensation' => [
-            'driver' => 'pgsql',
-            'host' => env('COMPENSATION_DB_HOST', 'postgres'),
-            'port' => env('COMPENSATION_DB_PORT', '5432'),
-            'database' => env('COMPENSATION_DB_DATABASE', 'compensation_db'),
-            'username' => env('COMPENSATION_DB_USERNAME', env('DB_USERNAME', 'payroll_user')),
-            'password' => env('COMPENSATION_DB_PASSWORD', env('DB_PASSWORD', '')),
-            'charset' => 'utf8',
-            'prefix' => '',
-            'prefix_indexes' => true,
-            'search_path' => 'public',
-            'sslmode' => 'prefer',
-        ],
-
-                'claims' => [
-            'driver' => 'pgsql',
-            'host' => env('CLAIMS_DB_HOST', 'postgres'),
-            'port' => env('CLAIMS_DB_PORT', '5432'),
-            'database' => env('CLAIMS_DB_DATABASE', 'claims_db'),
-            'username' => env('CLAIMS_DB_USERNAME', env('DB_USERNAME', 'payroll_user')),
-            'password' => env('CLAIMS_DB_PASSWORD', env('DB_PASSWORD', '')),
-            'charset' => 'utf8',
-            'prefix' => '',
-            'prefix_indexes' => true,
-            'search_path' => 'public',
-            'sslmode' => 'prefer',
-        ],
-
-                'benefits' => [
-            'driver' => 'pgsql',
-            'host' => env('BENEFITS_DB_HOST', 'postgres'),
-            'port' => env('BENEFITS_DB_PORT', '5432'),
-            'database' => env('BENEFITS_DB_DATABASE', 'benefits_db'),
-            'username' => env('BENEFITS_DB_USERNAME', env('DB_USERNAME', 'payroll_user')),
-            'password' => env('BENEFITS_DB_PASSWORD', env('DB_PASSWORD', '')),
-            'charset' => 'utf8',
-            'prefix' => '',
-            'prefix_indexes' => true,
-            'search_path' => 'public',
-            'sslmode' => 'prefer',
-        ],
+        'employee' => $service('EMPLOYEE'),
+        'auth' => $service('AUTH'),
+        'payroll' => $service('PAYROLL'),
+        'attendance' => $service('ATTENDANCE'),
+        'compensation' => $service('COMPENSATION'),
+        'claims' => $service('CLAIMS'),
+        'benefits' => $service('BENEFITS'),
     ],
 
     'migrations' => [
