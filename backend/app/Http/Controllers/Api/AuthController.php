@@ -34,7 +34,7 @@ class AuthController extends Controller
             ]);
         }
 
-        if (! in_array($user->role, self::OTP_ROLES, true)) {
+       if (! config('app.otp_enabled') || ! in_array($user->role, self::OTP_ROLES, true)) {
             $token = $user->createToken('pbms-frontend')->plainTextToken;
 
             return response()->json([

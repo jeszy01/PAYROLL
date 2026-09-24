@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'otp_enabled' => env('OTP_ENABLED', true),
     'name' => env('APP_NAME', 'Payroll & Benefits API'),
     'env' => env('APP_ENV', 'production'),
     'debug' => (bool) env('APP_DEBUG', false),
