@@ -211,7 +211,8 @@ export interface AttendanceSummaryRow {
   totalOvertimeMinutes: number;
 }
 
-
+export interface SalaryGrade {
+  
   id: ID;
   gradeCode: string;
   gradeName: string;

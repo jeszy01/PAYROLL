@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Dashboard } from './pages/Dashboard';
 import { Employees } from './pages/Employees';
-import { TimesheetManagement } from './pages/TimesheetManagement';
+import { TimesheetManagement } from './pages/TimeSheetManagement';
 import { UserManagement } from './pages/UserManagement';
 import { PayrollManagement } from './pages/PayrollManagement';
 import { CompensationPlanning } from './pages/CompensationPlanning';
