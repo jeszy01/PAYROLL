@@ -86,19 +86,7 @@ class EmployeeController extends Controller
             'tin_number' => $data['tinNumber'] ?? null,
         ]);
 
-        $temporaryPassword = Str::password(12);
-
-        User::create([
-            'name' => trim($data['firstName'].' '.$data['lastName']),
-            'email' => $data['email'],
-            'password' => $temporaryPassword,
-            'role' => User::ROLE_EMPLOYEE,
-            'employee_id' => $employee->id,
-        ]);
-
-        return (new EmployeeResource($employee))->additional([
-            'temporaryPassword' => $temporaryPassword,
-        ]);
+                return new EmployeeResource($employee);
     });
 }
 

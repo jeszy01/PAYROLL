@@ -60,10 +60,6 @@ class CreateUser extends Command
             }
 
             $employeeId = $employee->id;
-        } elseif ($role === User::ROLE_EMPLOYEE) {
-            $this->error('The employee role needs --employee-number so the account is linked to an employee record.');
-
-            return self::FAILURE;
         }
 
         $password = $this->option('password') ?: $this->secret('Password (minimum 8 characters)');
