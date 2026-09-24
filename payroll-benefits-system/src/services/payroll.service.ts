@@ -1,5 +1,5 @@
 import { apiClient } from './apiClient';
-import type { PayrollRun, Payslip, AttendanceSummary, AttendanceRecord, AttendanceSheetRow } from '../types';
+import type { PayrollRun, Payslip, AttendanceSummary, AttendanceRecord, AttendanceSheetRow, TimesheetForRun } from '../types';
 
 export const payrollService = {
   listRuns: (includeArchived = false) =>
@@ -37,6 +37,14 @@ export const payrollService = {
     payrollRunId: string,
     payload: { employeeId: string; date: string; status: 'present' | 'absent' | 'day_off'; minutesLate: number; overtimeMinutes: number }
   ) => apiClient.post<AttendanceRecord>(`/payroll/runs/${payrollRunId}/attendance-records`, payload),
+   getTimesheet: (payrollRunId: string) =>
+    apiClient.get<TimesheetForRun>(`/payroll/runs/${payrollRunId}/timesheet`),
+  saveTimesheetDay: (
+    payrollRunId: string,
+    payload: { employeeId: string; date: string; status: 'present' | 'absent' | 'day_off'; minutesLate: number; overtimeMinutes: number }
+  ) => apiClient.post<TimesheetForRun>(`/payroll/runs/${payrollRunId}/timesheet/day`, payload),
+  submitTimesheet: (payrollRunId: string) =>
+    apiClient.post<TimesheetForRun>(`/payroll/runs/${payrollRunId}/timesheet/submit`),
   computeRun: (payrollRunId: string) => apiClient.post<PayrollRun>(`/payroll/runs/${payrollRunId}/compute`),
 
   listPayslips: (payrollRunId: string) =>

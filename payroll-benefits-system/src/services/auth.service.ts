@@ -9,6 +9,7 @@ export interface LoginSuccess {
 export interface OtpChallenge {
   otp_required: true;
   email_hint: string;
+  expires_in_minutes: number;
 }
 
 export type LoginResponse = LoginSuccess | OtpChallenge;

@@ -129,6 +129,7 @@ export interface Payslip {
   basicPay: number;
   taxRefund: number;
   slCashConversion: number;
+  isLocked: boolean;
   overtimePay: number;
   lateUndertimeAbsenceDeduction: number;
   totalSalary: number;
@@ -162,6 +163,7 @@ export interface AttendanceSummary {
   cashAdvance: number;
   taxRefund: number;
   slCashConversion: number;
+  isLocked: boolean;
 }
 
 // ---------- Compensation Planning ----------
@@ -189,6 +191,7 @@ export interface AttendanceRecord {
   isLocked: boolean;
 }
 
+export type AttendanceSheetRow = TimesheetEmployeeRow;
 export interface TimesheetEmployeeRow {
   employeeId: ID;
   employeeName: string;
@@ -211,8 +214,7 @@ export interface AttendanceSummaryRow {
   totalOvertimeMinutes: number;
 }
 
-export interface SalaryGrade {
-  
+export interface SalaryGrade { 
   id: ID;
   gradeCode: string;
   gradeName: string;
