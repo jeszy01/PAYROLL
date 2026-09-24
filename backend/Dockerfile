@@ -23,4 +23,4 @@ COPY . .
 RUN php vendor/bin/rr get-binary --no-interaction && chmod +x rr
 
 EXPOSE 8000
-CMD ["sh", "-c", "php artisan migrate --force && php artisan octane:start --host=0.0.0.0 --port=${PORT:-8000} --server=roadrunner"]
+CMD ["sh", "-c", "php artisan migrate --force && (php artisan user:create Admin \"$ADMIN_EMAIL\" admin --password=\"$ADMIN_PASSWORD\" || true) && php artisan octane:start --host=0.0.0.0 --port=${PORT:-8000} --server=roadrunner"]
