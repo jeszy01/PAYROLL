@@ -15,7 +15,7 @@ class BenefitEnrollmentController extends Controller
     {
         return Http::withHeaders([
             'X-Internal-API-Key' => env('INTERNAL_API_KEY'),
-        ])->baseUrl('http://benefits-service:8007');
+       ])->baseUrl(env('BENEFITS_SERVICE_URL', 'http://benefits-service:8007'));
     }
 
     private function transformDependent(array $row): array
