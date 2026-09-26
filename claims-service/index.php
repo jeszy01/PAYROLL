@@ -5,6 +5,13 @@
 
 header('Content-Type: application/json');
 
+$path = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
+if ($path === 'health') {
+    http_response_code(200);
+    echo json_encode(['status' => 'ok']);
+    exit;
+}
+
 $providedKey = $_SERVER['HTTP_X_INTERNAL_API_KEY'] ?? '';
 $expectedKey = getenv('INTERNAL_API_KEY');
 
