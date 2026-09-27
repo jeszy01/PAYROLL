@@ -11,7 +11,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useCurrentUser, isAdmin } from '../../hooks/useCurrentUser';
 
@@ -46,8 +46,14 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
-  const [compensationOpen, setCompensationOpen] = useState(false);
+    const [compensationOpen, setCompensationOpen] = useState(false);
   const location = useLocation();
+
+  useEffect(() => {
+    if (location.pathname === '/compensation') {
+      setCompensationOpen(true);
+    }
+  }, [location.pathname]);
   const { data: user } = useCurrentUser();
   const accountHref = isAdmin(user) ? '/users' : '#';
   const currentTab = new URLSearchParams(location.search).get('tab');
@@ -101,7 +107,7 @@ export function Sidebar() {
 
           if ('children' in item && item.children) {
             const isOnCompensation = location.pathname === item.to;
-            const isOpen = compensationOpen || isOnCompensation;
+            const isOpen = compensationOpen;
 
             return (
               <div key={item.to}>
