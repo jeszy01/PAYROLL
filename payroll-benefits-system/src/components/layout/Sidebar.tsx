@@ -29,7 +29,16 @@ function initialsOf(fullName?: string) {
 
 const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: LayoutGrid, end: true },
-  { to: '/employees', label: 'Employees', icon: Users },
+    {
+    to: '/employees',
+    label: 'Employees',
+    icon: Users,
+    children: [
+      { to: '/employees?tab=directory', label: 'Directory', tab: 'directory' },
+      { to: '/employees?tab=attendance', label: 'Attendance', tab: 'attendance' },
+      { to: '/employees?tab=deductions', label: 'Deductions', tab: 'deductions' },
+    ],
+  },
   { to: '/payroll', label: 'Payroll Management', icon: Banknote },
   {
     to: '/compensation',
@@ -46,12 +55,13 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
-    const [compensationOpen, setCompensationOpen] = useState(false);
+  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
   const location = useLocation();
 
   useEffect(() => {
-    if (location.pathname === '/compensation') {
-      setCompensationOpen(true);
+    const match = NAV_ITEMS.find((item) => 'children' in item && item.children && item.to === location.pathname);
+    if (match) {
+      setOpenMenus((prev) => ({ ...prev, [match.to]: true }));
     }
   }, [location.pathname]);
   const { data: user } = useCurrentUser();
@@ -105,17 +115,17 @@ export function Sidebar() {
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
 
-          if ('children' in item && item.children) {
-            const isOnCompensation = location.pathname === item.to;
-            const isOpen = compensationOpen;
+           if ('children' in item && item.children) {
+            const isOnSection = location.pathname === item.to;
+            const isOpen = openMenus[item.to] ?? false;
 
             return (
               <div key={item.to}>
                 <button
                   type="button"
-                  onClick={() => setCompensationOpen((o) => !o)}
+                  onClick={() => setOpenMenus((prev) => ({ ...prev, [item.to]: !prev[item.to] }))}
                   className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-                    isOnCompensation
+                    isOnSection
                       ? 'bg-primary-500 text-white'
                       : 'text-white/75 hover:bg-white/10 hover:text-white'
                   }`}
@@ -132,7 +142,7 @@ export function Sidebar() {
                 {!collapsed && isOpen && (
                   <div className="ml-8 mt-1 space-y-1">
                     {item.children.map((child) => {
-                      const isChildActive = isOnCompensation && currentTab === child.tab;
+                      const isChildActive = isOnSection && currentTab === child.tab;
                       return (
                         <Link
                           key={child.to}
