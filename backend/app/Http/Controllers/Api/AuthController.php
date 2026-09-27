@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
-use App\Mail\AdminOtpMail;
+use App\Services\BrevoMailer;
 use App\Models\Employee;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -50,7 +50,12 @@ class AuthController extends Controller
             'otp_expires_at' => now()->addMinutes(self::OTP_EXPIRES_MINUTES),
         ])->save();
 
-        Mail::to($user->email)->send(new AdminOtpMail($code, self::OTP_EXPIRES_MINUTES));
+    BrevoMailer::send(
+    $user->email,
+    $user->name,
+    "{$code} is your login verification code",
+    "Your login verification code is: {$code}\n\nThis code expires in " . self::OTP_EXPIRES_MINUTES . " minutes.\n\nIf you didn't try to sign in, you can ignore this email."
+);
 
         // A fresh code resets the attempt counter for this login ID.
         RateLimiter::clear($this->otpThrottleKey($credentials['employee_number'], $request));
