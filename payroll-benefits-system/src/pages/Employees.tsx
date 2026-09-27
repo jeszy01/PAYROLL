@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Plus, Users, Eye, Pencil, Trash2, Download, Search, RotateCcw } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { Layout } from '../components/layout/Layout';
 import { DataTable, type Column } from '../components/common/DataTable';
 import { EmptyState } from '../components/common/EmptyState';
@@ -503,9 +503,14 @@ function DeductionsTab() {
 }
 
 export function Employees() {
-  const { data: currentUser } = useCurrentUser();
+    const { data: currentUser } = useCurrentUser();
   const canDelete = isAdmin(currentUser);
-  const [tab, setTab] = useState<'directory' | 'attendance' | 'deductions'>('directory');
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const tab = (tabParam === 'attendance' || tabParam === 'deductions' ? tabParam : 'directory') as
+    | 'directory'
+    | 'attendance'
+    | 'deductions';
   const { data, loading, error, refetch } = useApiResource(() => employeeService.list(), []);
   const [showNew, setShowNew] = useState(false);
   const [viewingEmployee, setViewingEmployee] = useState<Employee | null>(null);
@@ -632,26 +637,7 @@ export function Employees() {
   ];
 
   return (
-    <Layout title="Employees" subtitle="Directory &amp; profiles">
-          <div className="mb-6 flex w-fit rounded-lg border border-line bg-surface p-1">
-        {(
-          [
-            { key: 'directory', label: 'Directory' },
-            { key: 'attendance', label: 'Attendance' },
-            { key: 'deductions', label: 'Deductions' },
-          ] as const
-        ).map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`rounded-md px-4 py-2 text-sm font-semibold transition ${
-              tab === t.key ? 'bg-navy-900 text-white' : 'text-ink-500 hover:bg-sand-100'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+       <Layout title="Employees" subtitle="Directory &amp; profiles">
             {tab === 'directory' && (
               <>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
