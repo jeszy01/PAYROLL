@@ -5,7 +5,7 @@ namespace App\Services;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
-class BrevoMailer
+class ResendMailer
 {
     public static function send(string $toEmail, string $toName, string $subject, string $textContent): bool
     {

@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
-use App\Services\BrevoMailer;
+use App\Services\ResendMailer;
 use App\Models\Employee;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -50,7 +50,7 @@ class AuthController extends Controller
             'otp_expires_at' => now()->addMinutes(self::OTP_EXPIRES_MINUTES),
         ])->save();
 
-    BrevoMailer::send(
+    ResendMailer::send(
     $user->email,
     $user->name,
     "{$code} is your login verification code",
