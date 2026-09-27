@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, HeartPulse, Shield } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { DataTable, type Column } from '../components/common/DataTable';
@@ -333,7 +334,8 @@ function EnrollmentsTab() {
 }
 
 export function HmoBenefits() {
-  const [tab, setTab] = useState<'plans' | 'enrollments'>('plans');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = (searchParams.get('tab') as 'plans' | 'enrollments') || 'plans';
 
   return (
     <Layout title="HMO & Benefits Administration" subtitle="Manage benefit plans and employee enrollments">
@@ -346,7 +348,7 @@ export function HmoBenefits() {
         ).map((t) => (
           <button
             key={t.key}
-            onClick={() => setTab(t.key)}
+            onClick={() => setSearchParams({ tab: t.key })}
             className={`rounded-md px-4 py-2 text-sm font-semibold transition ${
               tab === t.key ? 'bg-navy-900 text-white' : 'text-ink-500 hover:bg-sand-100'
             }`}
