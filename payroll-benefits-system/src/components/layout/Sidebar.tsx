@@ -8,8 +8,11 @@ import {
   HeartPulse,
   ChevronsLeft,
   ChevronsRight,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useCurrentUser, isAdmin } from '../../hooks/useCurrentUser';
 
 const ROLE_LABEL = { admin: 'Admin', hr_staff: 'HR Staff', employee: 'Employee' } as const;
@@ -28,15 +31,26 @@ const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: LayoutGrid, end: true },
   { to: '/employees', label: 'Employees', icon: Users },
   { to: '/payroll', label: 'Payroll Management', icon: Banknote },
-  { to: '/compensation', label: 'Compensation Planning', icon: LineChart },
+  {
+    to: '/compensation',
+    label: 'Compensation Planning',
+    icon: LineChart,
+    children: [
+      { to: '/compensation?tab=grades', label: 'Salary Grades', tab: 'grades' },
+      { to: '/compensation?tab=adjustments', label: 'Adjustment Requests', tab: 'adjustments' },
+    ],
+  },
   { to: '/claims', label: 'Claims & Reimbursement', icon: Receipt },
   { to: '/benefits', label: 'HMO & Benefits', icon: HeartPulse },
 ];
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
+  const [compensationOpen, setCompensationOpen] = useState(false);
+  const location = useLocation();
   const { data: user } = useCurrentUser();
   const accountHref = isAdmin(user) ? '/users' : '#';
+  const currentTab = new URLSearchParams(location.search).get('tab');
 
   return (
     <aside
@@ -81,26 +95,77 @@ export function Sidebar() {
           </div>
         )}
       </div>
-
       <nav className="flex-1 space-y-1 px-3">
-        {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={end}
-            className={({ isActive }) =>
-              `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-                isActive
-                  ? 'bg-primary-500 text-white'
-                  : 'text-white/75 hover:bg-white/10 hover:text-white'
-              }`
-            }
-            title={collapsed ? label : undefined}
-          >
-            <Icon size={18} strokeWidth={1.75} className="shrink-0" />
-            {!collapsed && <span className="truncate">{label}</span>}
-          </NavLink>
-        ))}
+        {NAV_ITEMS.map((item) => {
+          const Icon = item.icon;
+
+          if ('children' in item && item.children) {
+            const isOnCompensation = location.pathname === item.to;
+            const isOpen = compensationOpen || isOnCompensation;
+
+            return (
+              <div key={item.to}>
+                <button
+                  type="button"
+                  onClick={() => setCompensationOpen((o) => !o)}
+                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                    isOnCompensation
+                      ? 'bg-primary-500 text-white'
+                      : 'text-white/75 hover:bg-white/10 hover:text-white'
+                  }`}
+                  title={collapsed ? item.label : undefined}
+                >
+                  <Icon size={18} strokeWidth={1.75} className="shrink-0" />
+                  {!collapsed && (
+                    <>
+                      <span className="flex-1 truncate text-left">{item.label}</span>
+                      {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                    </>
+                  )}
+                </button>
+                {!collapsed && isOpen && (
+                  <div className="ml-8 mt-1 space-y-1">
+                    {item.children.map((child) => {
+                      const isChildActive = isOnCompensation && currentTab === child.tab;
+                      return (
+                        <Link
+                          key={child.to}
+                          to={child.to}
+                          className={`block rounded-lg px-3 py-2 text-sm transition ${
+                            isChildActive
+                              ? 'bg-primary-500 text-white'
+                              : 'text-white/65 hover:bg-white/10 hover:text-white'
+                          }`}
+                        >
+                          {child.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                  isActive
+                    ? 'bg-primary-500 text-white'
+                    : 'text-white/75 hover:bg-white/10 hover:text-white'
+                }`
+              }
+              title={collapsed ? item.label : undefined}
+            >
+              <Icon size={18} strokeWidth={1.75} className="shrink-0" />
+              {!collapsed && <span className="truncate">{item.label}</span>}
+            </NavLink>
+          );
+        })}
       </nav>
 
       <div className="border-t border-white/20 p-3">
