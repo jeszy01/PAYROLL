@@ -370,7 +370,7 @@ function AdjustmentsTab() {
   );
 }
 export function CompensationPlanning() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const tab = (searchParams.get('tab') === 'adjustments' ? 'adjustments' : 'grades') as 'grades' | 'adjustments';
   const { data: grades } = useApiResource(() => compensationService.listSalaryGrades(), []);
   const { data: adjustments } = useApiResource(() => compensationService.listAdjustments(), []);
