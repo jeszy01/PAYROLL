@@ -372,7 +372,6 @@ function AdjustmentsTab() {
 export function CompensationPlanning() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = (searchParams.get('tab') === 'adjustments' ? 'adjustments' : 'grades') as 'grades' | 'adjustments';
-  const setTab = (t: 'grades' | 'adjustments') => setSearchParams({ tab: t });
   const { data: grades } = useApiResource(() => compensationService.listSalaryGrades(), []);
   const { data: adjustments } = useApiResource(() => compensationService.listAdjustments(), []);
 
@@ -387,24 +386,7 @@ export function CompensationPlanning() {
         <StatCard icon={CheckCircle2} label="Implemented (YTD)" value={String(implementedCount)} tone="good" hint="Salary changes applied" />
       </div>
 
-      <div className="mb-4 flex w-fit rounded-lg border border-line bg-surface p-1">
-        {(
-          [
-            { key: 'grades', label: 'Salary Grades' },
-            { key: 'adjustments', label: 'Adjustment Requests' },
-          ] as const
-        ).map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`rounded-md px-4 py-2 text-sm font-semibold transition ${
-              tab === t.key ? 'bg-primary-600 text-white' : 'text-ink-500 hover:bg-sand-100'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      
 
       {tab === 'grades' ? <SalaryGradesTab /> : <AdjustmentsTab />}
     </Layout>
