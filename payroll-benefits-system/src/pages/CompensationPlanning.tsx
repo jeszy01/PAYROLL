@@ -385,23 +385,15 @@ export function CompensationPlanning() {
         <StatCard icon={CheckCircle2} label="Implemented (YTD)" value={String(implementedCount)} tone="good" hint="Salary changes applied" />
       </div>
 
-      <div className="mb-4 flex w-fit rounded-lg border border-line bg-surface p-1">
-        {(
-          [
-            { key: 'grades', label: 'Salary Grades' },
-            { key: 'adjustments', label: 'Adjustment Requests' },
-          ] as const
-        ).map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`rounded-md px-4 py-2 text-sm font-semibold transition ${
-              tab === t.key ? 'bg-primary-600 text-white' : 'text-ink-500 hover:bg-sand-100'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+            <div className="mb-4 w-fit">
+        <select
+          value={tab}
+          onChange={(e) => setTab(e.target.value as 'grades' | 'adjustments')}
+          className="rounded-lg border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink-900 focus:outline-none focus:ring-2 focus:ring-primary-600"
+        >
+          <option value="grades">Salary Grades</option>
+          <option value="adjustments">Adjustment Requests</option>
+        </select>
       </div>
 
       {tab === 'grades' ? <SalaryGradesTab /> : <AdjustmentsTab />}
