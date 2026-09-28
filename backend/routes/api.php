@@ -60,9 +60,9 @@ Route::middleware('auth:sanctum')->group(function () {
         // submitting the whole timesheet locks the entire cutoff, and
         // payroll cannot be computed until that happens (see
         // PayrollRunController::compute()).
-        Route::get('/payroll/runs/{payrollRun}/attendance-records', [AttendanceRecordController::class, 'indexForRun']);
-        Route::post('/payroll/runs/{payrollRun}/attendance-records', [AttendanceRecordController::class, 'storeForRun']);
-        Route::post('/payroll/runs/{payrollRun}/attendance-records/submit', [AttendanceRecordController::class, 'submit']);
+        Route::get('/payroll/runs/{payrollRun}/timesheet', [AttendanceRecordController::class, 'indexForRun']);
+        Route::post('/payroll/runs/{payrollRun}/timesheet/day', [AttendanceRecordController::class, 'storeForRun']);
+        Route::post('/payroll/runs/{payrollRun}/timesheet/submit', [AttendanceRecordController::class, 'submit']);
 
         // Read-only date-range summary for the Employees page Attendance tab.
         Route::get('/attendance/summary', [AttendanceRecordController::class, 'summaryForPeriod']);
