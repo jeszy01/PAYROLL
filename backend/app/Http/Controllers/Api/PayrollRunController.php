@@ -76,6 +76,46 @@ class PayrollRunController extends Controller
         );
     }
 
+    /**
+     * Compute payslips for every active employee based on the attendance
+     * summaries entered for this run, then move the run to "for_approval".
+     *
+     * Line items and flow match the client's actual payslip format:
+     *   Basic Salary + Tax Refund + SL-Cash Conversion + Overtime Pay
+     *     - Absent/Undertime/Lates = Total Salary
+     *   Total Salary - SSS - PhilHealth - HDMF = Taxable Salary
+     *   Taxable Salary - Withholding Tax - Cash Advance - SSS Loan
+     *     - HDMF Loan - Company Loan = Net Salary
+     *   Net Salary + Transportation Allowance + Rice Subsidy Allowance
+     *     = Total Remittance
+     *
+     * Per client feedback (client interview, semi-monthly payroll):
+     * - Cutoffs run 26th-9th (paid the 15th) and 10th-25th (paid the
+     *   30th/31st) — cutoff lengths differ, so "working days" is derived
+     *   from the actual pay_period_start/end of each run (weekdays only)
+     *   rather than a fixed constant.
+     * - A 15-minute grace period applies before lateness is deducted.
+     * - Employees may have recurring per-cutoff amounts (company loan,
+     *   SSS loan, HDMF loan, transportation/rice subsidy allowances) —
+     *   see the corresponding columns on the Employee model. Cash
+     *   Advance, Tax Refund, and SL-Cash Conversion are one-off instead,
+     *   entered per run on the attendance summary.
+     *
+     * NOT IMPLEMENTED: the client's slip itemizes overtime into Reg OT /
+     * Sun OT / Hol-ND OT, each carrying a different legally-mandated
+     * premium rate. Those rates weren't confirmed as of this build, so
+     * overtime stays a single entered value at a flat 1.25x — same
+     * "simplified, not the official figures" caveat as the statutory
+     * rates below.
+     *
+     * NOTE ON STATUTORY RATES: SSS / PhilHealth / HDMF / withholding tax
+     * below still use simplified flat percentages for demonstration.
+     * They are NOT the official, bracketed government contribution
+     * tables (those change periodically and have income brackets/caps).
+     * Swap the constants in this method for the actual current tables
+     * before using this for real payroll — the client has these on file
+     * but hadn't confirmed the exact bracket figures as of this build.
+     */
     public function compute(PayrollRun $payrollRun)
     {
         if ($payrollRun->status !== 'draft') {
@@ -129,7 +169,7 @@ class PayrollRunController extends Controller
 
                 $basicPay = round($dailyRate * (float) $summary->days_present, 2);
                 $overtimePay = round($hourlyRate * 1.25 * (float) $summary->overtime_hours, 2);
-                $totalSalary = max(0, $basicPay + $slCashConversion + $overtimePay - $lateUndertimeAbsenceDeduction);
+                $taxRefund = round((float) $summary->tax_refund, 2);
                 $slCashConversion = round((float) $summary->sl_cash_conversion, 2);
 
                 $lateMinutesBeyondGrace = max(0, (int) $summary->late_minutes - $lateGraceMinutes);
@@ -137,7 +177,7 @@ class PayrollRunController extends Controller
                 $absenceDeduction = round($dailyRate * (float) $summary->unpaid_absence_days, 2);
                 $lateUndertimeAbsenceDeduction = round($lateDeduction + $absenceDeduction, 2);
 
-                $totalSalary = max(0, $basicPay+ $slCashConversion + $overtimePay - $lateUndertimeAbsenceDeduction);
+                $totalSalary = max(0, $basicPay + $taxRefund + $slCashConversion + $overtimePay - $lateUndertimeAbsenceDeduction);
 
                 $sss = round($totalSalary * $sssRate, 2);
                 $philhealth = round($totalSalary * $philhealthRate, 2);
@@ -147,11 +187,12 @@ class PayrollRunController extends Controller
                 $taxableIncomeOverThreshold = max(0, $taxableSalary - $taxableThreshold);
                 $withholdingTax = round($taxableIncomeOverThreshold * $taxRate, 2);
 
+                $cashAdvance = round((float) $summary->cash_advance, 2);
                 $sssLoan = round((float) $employee->sss_loan_per_cutoff, 2);
                 $hdmfLoan = round((float) $employee->hdmf_loan_per_cutoff, 2);
                 $companyLoan = round((float) $employee->loan_deduction_per_cutoff, 2);
 
-                $netSalary = max(0, round($taxableSalary - $withholdingTax - $sssLoan - $hdmfLoan - $companyLoan, 2));
+                $netSalary = max(0, round($taxableSalary - $withholdingTax - $cashAdvance - $sssLoan - $hdmfLoan - $companyLoan, 2));
 
                 $transportationAllowance = round((float) $employee->transportation_allowance, 2);
                 $riceSubsidyAllowance = round((float) $employee->rice_subsidy_allowance, 2);
@@ -164,6 +205,7 @@ class PayrollRunController extends Controller
                     'employee_name' => "{$employee->first_name} {$employee->last_name}",
                     'department' => $employee->department,
                     'basic_pay' => $basicPay,
+                    'tax_refund' => $taxRefund,
                     'sl_cash_conversion' => $slCashConversion,
                     'overtime_pay' => $overtimePay,
                     'late_undertime_absence_deduction' => $lateUndertimeAbsenceDeduction,
