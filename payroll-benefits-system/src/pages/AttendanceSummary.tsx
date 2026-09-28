@@ -7,6 +7,7 @@ import { payrollService } from '../services/payroll.service';
 import { attendanceService } from '../services/attendance.service';
 import type { PayrollRun, AttendanceSummary } from '../types';
 import { formatDate } from '../utils/format';
+import { Layout } from '../components/layout/Layout';
 
 function RunPicker({ runs, onPick }: { runs: PayrollRun[]; onPick: (id: string) => void }) {
   if (runs.length === 0) {
