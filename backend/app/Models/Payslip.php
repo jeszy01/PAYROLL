@@ -13,7 +13,7 @@ class Payslip extends Model
 
     protected $fillable = [
         'payroll_run_id', 'employee_id', 'employee_number', 'employee_name', 'department',
-        'basic_pay', 'tax_refund', 'sl_cash_conversion', 'overtime_pay',
+        'basic_pay','sl_cash_conversion', 'overtime_pay',
         'late_undertime_absence_deduction', 'total_salary',
         'sss_contribution', 'philhealth_contribution', 'pagibig_contribution', 'taxable_salary',
         'withholding_tax', 'cash_advance', 'sss_loan', 'hdmf_loan', 'company_loan_deduction', 'net_salary',
@@ -25,7 +25,6 @@ class Payslip extends Model
     {
         return [
             'basic_pay' => 'decimal:2',
-            'tax_refund' => 'decimal:2',
             'sl_cash_conversion' => 'decimal:2',
             'overtime_pay' => 'decimal:2',
             'late_undertime_absence_deduction' => 'decimal:2',

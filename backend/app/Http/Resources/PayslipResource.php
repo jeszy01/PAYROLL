@@ -17,7 +17,6 @@ class PayslipResource extends JsonResource
             'employeeName' => $this->employee_name,
             'department' => $this->department,
             'basicPay' => (float) $this->basic_pay,
-            'taxRefund' => (float) $this->tax_refund,
             'slCashConversion' => (float) $this->sl_cash_conversion,
             'overtimePay' => (float) $this->overtime_pay,
             'lateUndertimeAbsenceDeduction' => (float) $this->late_undertime_absence_deduction,

@@ -72,7 +72,6 @@ class AttendanceCalculator
             'overtime_hours' => round($records->sum('overtime_minutes') / 60, 2),
             'unpaid_absence_days' => $unpaidAbsenceDays,
             'cash_advance' => 0,
-            'tax_refund' => 0,
             'sl_cash_conversion' => 0,
         ]);
     }

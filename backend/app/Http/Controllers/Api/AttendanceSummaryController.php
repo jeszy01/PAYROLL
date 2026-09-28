@@ -48,7 +48,6 @@ class AttendanceSummaryController extends Controller
                     'overtime_hours' => 0,
                     'unpaid_absence_days' => 0,
                     'cash_advance' => 0,
-                    'tax_refund' => 0,
                     'sl_cash_conversion' => 0,
                 ]);
             });
@@ -76,7 +75,6 @@ class AttendanceSummaryController extends Controller
             'overtimeHours' => ['required', 'numeric', 'min:0'],
             'unpaidAbsenceDays' => ['required', 'numeric', 'min:0'],
             'cashAdvance' => ['required', 'numeric', 'min:0'],
-            'taxRefund' => ['required', 'numeric', 'min:0'],
             'slCashConversion' => ['required', 'numeric', 'min:0'],
         ]);
 
@@ -101,7 +99,6 @@ class AttendanceSummaryController extends Controller
             'overtime_hours'      => $data['overtimeHours'],
             'unpaid_absence_days' => $data['unpaidAbsenceDays'],
             'cash_advance'        => $data['cashAdvance'],
-            'tax_refund'          => $data['taxRefund'],
             'sl_cash_conversion'  => $data['slCashConversion'],
         ]);
 
