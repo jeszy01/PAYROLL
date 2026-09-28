@@ -68,6 +68,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Read-only date-range summary for the Employees page Attendance tab.
         Route::get('/attendance/summary', [AttendanceRecordController::class, 'summaryForPeriod']);
+                Route::get('/attendance/day', [AttendanceRecordController::class, 'dayForDate']);
+        Route::post('/attendance/day', [AttendanceRecordController::class, 'storeDay']);
+        Route::get('/attendance/records', [AttendanceRecordController::class, 'records']);
 
         // ---------- Payroll Management ----------
         // HR prepares and computes runs; final approval/release (which triggers

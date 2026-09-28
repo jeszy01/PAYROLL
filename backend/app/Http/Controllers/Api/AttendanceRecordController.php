@@ -13,6 +13,8 @@ use App\Models\PayrollRun;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
+use App\Services\AuditLogger;
+use Illuminate\Support\Facades\DB;
 
 class AttendanceRecordController extends Controller
 {
@@ -322,6 +324,128 @@ class AttendanceRecordController extends Controller
             ];
         }
 
+        
+
         return response()->json($summary);
+    }
+
+        /**
+     * Standalone daily attendance entry (not tied to a payroll run).
+     * Lists every active employee for a date, marking those already saved.
+     */
+    public function dayForDate(Request $request)
+    {
+        $request->validate(['date' => ['required', 'date_format:Y-m-d']]);
+        $date = $request->query('date');
+
+        $employees = Employee::where('employment_status', 'active')
+            ->orderBy('last_name')
+            ->get();
+
+        $existing = AttendanceRecord::whereDate('date', $date)->get()->keyBy('employee_id');
+
+        return response()->json([
+            'date' => $date,
+            'rows' => $employees->map(function ($e) use ($existing) {
+                $r = $existing->get($e->id);
+
+                return [
+                    'employeeId' => $e->id,
+                    'employeeName' => "{$e->first_name} {$e->last_name}",
+                    'isLocked' => (bool) $r,
+                    'status' => $r?->status ?? 'present',
+                    'minutesLate' => (int) ($r?->minutes_late ?? 0),
+                    'overtimeMinutes' => (int) ($r?->overtime_minutes ?? 0),
+                ];
+            })->values(),
+        ]);
+    }
+
+    /**
+     * Save one whole day. Final: there is no update or delete endpoint,
+     * and an employee/date that already has a record is skipped.
+     */
+    public function storeDay(Request $request)
+    {
+        $today = Carbon::now(self::TIMEZONE)->toDateString();
+
+        $data = $request->validate([
+            'date' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.$today],
+            'entries' => ['required', 'array', 'min:1'],
+            'entries.*.employeeId' => ['required', 'uuid', 'distinct'],
+            'entries.*.status' => ['required', 'in:present,absent'],
+            'entries.*.minutesLate' => ['nullable', 'integer', 'min:0', 'max:1440'],
+            'entries.*.overtimeMinutes' => ['nullable', 'integer', 'min:0', 'max:1440'],
+        ]);
+
+        $activeIds = Employee::where('employment_status', 'active')->pluck('id')->all();
+        $already = AttendanceRecord::whereDate('date', $data['date'])->pluck('employee_id')->all();
+
+        $created = 0;
+        $skipped = 0;
+
+        DB::connection('attendance')->transaction(function () use ($data, $activeIds, $already, &$created, &$skipped) {
+            foreach ($data['entries'] as $e) {
+                if (! in_array($e['employeeId'], $activeIds, true) || in_array($e['employeeId'], $already, true)) {
+                    $skipped++;
+                    continue;
+                }
+
+                $absent = $e['status'] === 'absent';
+
+                AttendanceRecord::create([
+                    'employee_id' => $e['employeeId'],
+                    'date' => $data['date'],
+                    'status' => $e['status'],
+                    'minutes_late' => $absent ? 0 : ($e['minutesLate'] ?? 0),
+                    'overtime_minutes' => $absent ? 0 : ($e['overtimeMinutes'] ?? 0),
+                ]);
+                $created++;
+            }
+        });
+
+        if ($created === 0) {
+            return response()->json([
+                'message' => 'Attendance for this date was already saved and is locked. Nothing new to save.',
+            ], 422);
+        }
+
+        AuditLogger::log('create', 'attendance', "Saved attendance for {$data['date']} ({$created} employees, {$skipped} skipped)");
+
+        return response()->json(['created' => $created, 'skipped' => $skipped], 201);
+    }
+
+    /**
+     * Per-day records for a date range (table + CSV export).
+     */
+    public function records(Request $request)
+    {
+        $request->validate([
+            'start' => ['required', 'date'],
+            'end' => ['required', 'date', 'after_or_equal:start'],
+        ]);
+
+        $records = AttendanceRecord::whereBetween('date', [$request->query('start'), $request->query('end')])
+            ->orderBy('date')
+            ->get();
+
+        $employees = Employee::whereIn('id', $records->pluck('employee_id')->unique())
+            ->get()
+            ->keyBy('id');
+
+        return response()->json($records->map(function ($r) use ($employees) {
+            $e = $employees->get($r->employee_id);
+
+            return [
+                'id' => $r->id,
+                'employeeId' => $r->employee_id,
+                'employeeNumber' => $e?->employee_number ?? '',
+                'employeeName' => $e ? "{$e->first_name} {$e->last_name}" : 'Unknown',
+                'date' => $r->date->toDateString(),
+                'status' => $r->status ?? 'present',
+                'minutesLate' => (int) $r->minutes_late,
+                'overtimeMinutes' => (int) $r->overtime_minutes,
+            ];
+        })->values());
     }
 }
