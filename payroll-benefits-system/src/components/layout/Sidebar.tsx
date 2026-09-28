@@ -50,7 +50,15 @@ const NAV_ITEMS = [
     ],
   },
   { to: '/claims', label: 'Claims & Reimbursement', icon: Receipt },
-  { to: '/benefits', label: 'HMO & Benefits', icon: HeartPulse },
+     {
+     to: '/benefits',
+     label: 'HMO & Benefits',
+     icon: HeartPulse,
+     children: [
+      { to: '/benefits?tab=plans', label: 'Benefit Plans', tab: 'plans' },
+      { to: '/benefits?tab=enrollments', label: 'Enrollments', tab: 'enrollments' },
+     ],
+   },
 ];
 
 export function Sidebar() {

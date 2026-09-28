@@ -334,11 +334,18 @@ function EnrollmentsTab() {
 }
 
 export function HmoBenefits() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const tab = (searchParams.get('tab') as 'plans' | 'enrollments') || 'plans';
+  const [searchParams, setSearchParams] =
+    useSearchParams();
+  const tab =
+    searchParams.get('tab') === 'enrollments'
+      ? 'enrollments'
+      : 'plans';
 
   return (
-    <Layout title="HMO & Benefits Administration" subtitle="Manage benefit plans and employee enrollments">
+    <Layout
+      title="HMO & Benefits Administration"
+      subtitle="Manage benefit plans and employee enrollments"
+    >
       <div className="mb-4 flex w-fit rounded-lg border border-line bg-surface p-1">
         {(
           [
@@ -350,7 +357,9 @@ export function HmoBenefits() {
             key={t.key}
             onClick={() => setSearchParams({ tab: t.key })}
             className={`rounded-md px-4 py-2 text-sm font-semibold transition ${
-              tab === t.key ? 'bg-navy-900 text-white' : 'text-ink-500 hover:bg-sand-100'
+              tab === t.key
+                ? 'bg-navy-900 text-white'
+                : 'text-ink-500 hover:bg-sand-100'
             }`}
           >
             {t.label}
@@ -362,3 +371,4 @@ export function HmoBenefits() {
     </Layout>
   );
 }
+
