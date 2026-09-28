@@ -92,19 +92,18 @@ class AttendanceSummaryController extends Controller
 
         $employee = Employee::findOrFail($data['employeeId']);
 
-        $summary = AttendanceSummary::create(
-            ['payroll_run_id' => $payrollRun->id, 'employee_id' => $data['employeeId']],
-            [
-                'employee_name' => "{$employee->first_name} {$employee->last_name}",
-                'days_present' => $data['daysPresent'],
-                'late_minutes' => $data['lateMinutes'],
-                'overtime_hours' => $data['overtimeHours'],
-                'unpaid_absence_days' => $data['unpaidAbsenceDays'],
-                'cash_advance' => $data['cashAdvance'],
-                'tax_refund' => $data['taxRefund'],
-                'sl_cash_conversion' => $data['slCashConversion'],
-            ]
-        );
+               $summary = AttendanceSummary::create([
+            'payroll_run_id'      => $payrollRun->id,
+            'employee_id'         => $data['employeeId'],
+            'employee_name'       => "{$employee->first_name} {$employee->last_name}",
+            'days_present'        => $data['daysPresent'],
+            'late_minutes'        => $data['lateMinutes'],
+            'overtime_hours'      => $data['overtimeHours'],
+            'unpaid_absence_days' => $data['unpaidAbsenceDays'],
+            'cash_advance'        => $data['cashAdvance'],
+            'tax_refund'          => $data['taxRefund'],
+            'sl_cash_conversion'  => $data['slCashConversion'],
+        ]);
 
         return new AttendanceSummaryResource($summary);
     }
