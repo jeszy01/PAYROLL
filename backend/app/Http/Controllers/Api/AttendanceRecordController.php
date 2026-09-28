@@ -205,7 +205,7 @@ class AttendanceRecordController extends Controller
         $data = $request->validate([
             'employeeId' => ['required', 'uuid'],
             'date' => ['required', 'date'],
-            'status' => ['required', 'in:present,absent,day_off'],
+            'status' => ['required', 'in:present,absent'],
             'minutesLate' => ['nullable', 'integer', 'min:0'],
             'overtimeMinutes' => ['nullable', 'integer', 'min:0'],
         ]);
@@ -317,7 +317,6 @@ class AttendanceRecordController extends Controller
                 'employeeName' => "{$employee->first_name} {$employee->last_name}",
                 'daysPresent' => $days->where('status', 'present')->count(),
                 'daysAbsent' => $days->where('status', 'absent')->count(),
-                'daysOff' => $days->where('status', 'day_off')->count(),
                 'totalMinutesLate' => (int) $days->sum('minutes_late'),
                 'totalOvertimeMinutes' => (int) $days->sum('overtime_minutes'),
             ];

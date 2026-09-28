@@ -173,7 +173,7 @@ export interface AttendanceSummary {
 export type HolidayType = 'regular' | 'special_non_working';
 export type ClockInStatus = 'on_time' | 'late';
 export type ClockOutStatus = 'on_time' | 'overtime';
-export type TimesheetDayStatus = 'present' | 'absent' | 'day_off';
+export type TimesheetDayStatus = 'present' | 'absent';
 
 export interface AttendanceRecord {
   id: ID;
@@ -209,7 +209,6 @@ export interface AttendanceSummaryRow {
   employeeName: string;
   daysPresent: number;
   daysAbsent: number;
-  daysOff: number;
   totalMinutesLate: number;
   totalOvertimeMinutes: number;
 }

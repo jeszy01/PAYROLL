@@ -412,7 +412,6 @@ function AttendanceTab() {
     { header: 'Employee', render: (r) => <span className="font-medium">{r.employeeName}</span> },
     { header: 'Days present', render: (r) => r.daysPresent, align: 'right' },
     { header: 'Absences', render: (r) => r.daysAbsent, align: 'right' },
-    { header: 'Day off', render: (r) => r.daysOff, align: 'right' },
     { header: 'Late (min)', render: (r) => r.totalMinutesLate, align: 'right' },
     { header: 'Overtime (min)', render: (r) => r.totalOvertimeMinutes, align: 'right' },
   ];
