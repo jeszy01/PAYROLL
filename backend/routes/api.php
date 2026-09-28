@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\SalaryGradeController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuditLogController;
+use App\Http\Controllers\Api\AttendanceSummaryController;
 
 // ---------- Auth ----------
 // Rate-limited so login can't be brute-forced.
@@ -65,6 +66,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/payroll/runs/{payrollRun}/timesheet', [AttendanceRecordController::class, 'indexForRun']);
         Route::post('/payroll/runs/{payrollRun}/timesheet/day', [AttendanceRecordController::class, 'storeForRun']);
         Route::post('/payroll/runs/{payrollRun}/timesheet/submit', [AttendanceRecordController::class, 'submit']);
+        Route::get('/payroll/runs/{payrollRun}/attendance-summary', [AttendanceSummaryController::class, 'indexForRun']);
+Route::post('/payroll/runs/{payrollRun}/attendance-summary', [AttendanceSummaryController::class, 'store']);
 
         // Read-only date-range summary for the Employees page Attendance tab.
         Route::get('/attendance/summary', [AttendanceRecordController::class, 'summaryForPeriod']);
