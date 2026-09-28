@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Plus, Users, Eye, Pencil, Trash2, Download, Search, RotateCcw } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { Layout } from '../components/layout/Layout';
@@ -11,9 +11,8 @@ import { TextField, SelectField } from '../components/common/FormField';
 import { useApiResource } from '../hooks/useApiResource';
 import { useCurrentUser, isAdmin } from '../hooks/useCurrentUser';
 import { employeeService } from '../services/employee.service';
-import { attendanceService, type AttendanceDayRow } from '../services/attendance.service';
 import { payrollService } from '../services/payroll.service';
-import type { Employee, EmploymentStatus, EmploymentType, CivilStatus, AttendanceSummaryRow, PayrollRun, Payslip } from '../types';
+import type { Employee, EmploymentStatus, EmploymentType, CivilStatus, PayrollRun, Payslip } from '../types';
 import { formatCurrency, formatDate } from '../utils/format';
 
 const STATUS_LABEL: Record<EmploymentStatus, string> = {
@@ -398,272 +397,6 @@ function ViewEmployeeModal({ employee, onClose }: { employee: Employee; onClose:
   );
 }
 
-function localToday() {
-  return new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD, local time
-}
-
-function CreateAttendanceModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const [date, setDate] = useState(localToday());
-  const [rows, setRows] = useState<AttendanceDayRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    attendanceService
-      .getDay(date)
-      .then((r) => {
-        if (!cancelled) setRows(r.rows);
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Could not load employees.');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [date]);
-
-  function update(i: number, patch: Partial<AttendanceDayRow>) {
-    setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
-  }
-
-  const open = rows.filter((r) => !r.isLocked);
-
-  async function handleSave() {
-    if (open.length === 0) return;
-    if (!confirm(`Save attendance for ${formatDate(date)}? Once saved, it cannot be edited or deleted.`)) return;
-    setSaving(true);
-    setError(null);
-    try {
-      await attendanceService.saveDay({
-        date,
-        entries: open.map((r) => ({
-          employeeId: r.employeeId,
-          status: r.status,
-          minutesLate: r.status === 'absent' ? 0 : r.minutesLate,
-          overtimeMinutes: r.status === 'absent' ? 0 : r.overtimeMinutes,
-        })),
-      });
-      onSaved();
-      onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save attendance.');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const cell =
-    'rounded-md border border-line bg-surface px-2 py-1 text-sm text-ink-900 outline-none focus:border-teal-500 disabled:bg-sand-50 disabled:text-ink-500';
-
-  return (
-    <Modal title="Create attendance" onClose={onClose} width="lg">
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="text-sm text-ink-500">
-            Date
-            <input
-              type="date"
-              value={date}
-              max={localToday()}
-              onChange={(e) => e.target.value && setDate(e.target.value)}
-              className={`${cell} ml-2`}
-            />
-          </label>
-          <p className="text-xs text-ink-500">Final once saved. It cannot be edited or deleted.</p>
-        </div>
-
-        {loading && <LoadingState label="Loading employees…" />}
-        {!loading && rows.length === 0 && !error && (
-          <EmptyState icon={Users} title="No active employees" description="Add active employees first." />
-        )}
-        {!loading && rows.length > 0 && (
-          <div className="max-h-[50vh] overflow-y-auto rounded-xl border border-line">
-            <table className="w-full text-left text-sm">
-              <thead className="sticky top-0 bg-sand-50">
-                <tr className="text-xs uppercase tracking-wide text-ink-500">
-                  <th className="px-3 py-2">Employee</th>
-                  <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2">Late (min)</th>
-                  <th className="px-3 py-2">OT (min)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => {
-                  const off = r.isLocked || r.status === 'absent';
-                  return (
-                    <tr key={r.employeeId} className="border-t border-line">
-                      <td className="px-3 py-2 font-medium text-ink-900">
-                        {r.employeeName}
-                        {r.isLocked && <span className="ml-2 text-xs font-normal text-ink-500">Saved</span>}
-                      </td>
-                      <td className="px-3 py-2">
-                        <select
-                          value={r.status}
-                          disabled={r.isLocked || saving}
-                          onChange={(e) =>
-                            update(i, {
-                              status: e.target.value as 'present' | 'absent',
-                              ...(e.target.value === 'absent' ? { minutesLate: 0, overtimeMinutes: 0 } : {}),
-                            })
-                          }
-                          className={cell}
-                        >
-                          <option value="present">Present</option>
-                          <option value="absent">Absent</option>
-                        </select>
-                      </td>
-                      <td className="px-3 py-2">
-                        <input
-                          type="number"
-                          min={0}
-                          value={r.minutesLate}
-                          disabled={off || saving}
-                          onChange={(e) => update(i, { minutesLate: Math.max(0, Number(e.target.value) || 0) })}
-                          className={`${cell} w-20`}
-                        />
-                      </td>
-                      <td className="px-3 py-2">
-                        <input
-                          type="number"
-                          min={0}
-                          value={r.overtimeMinutes}
-                          disabled={off || saving}
-                          onChange={(e) => update(i, { overtimeMinutes: Math.max(0, Number(e.target.value) || 0) })}
-                          className={`${cell} w-20`}
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {error && <p className="text-sm text-bad-600">{error}</p>}
-        <div className="flex justify-end gap-3 pt-2">
-          <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-semibold text-ink-500 hover:bg-sand-100">
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving || loading || open.length === 0}
-            className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:opacity-50"
-          >
-            {saving ? 'Saving…' : open.length === 0 && rows.length > 0 ? 'Already saved' : 'Save & lock'}
-          </button>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-function AttendanceTab() {
-  const today = localToday();
-  const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toLocaleDateString('en-CA');
-  const [start, setStart] = useState(firstOfMonth);
-  const [end, setEnd] = useState(today);
-  const [showCreate, setShowCreate] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const { data, loading, error, refetch } = useApiResource<AttendanceSummaryRow[]>(
-    () => attendanceService.getSummary(start, end),
-    [start, end]
-  );
-
-  async function handleExport() {
-    setExporting(true);
-    try {
-      const records = await attendanceService.getRecords(start, end);
-      const header = ['Date', 'Employee #', 'Employee', 'Status', 'Late (min)', 'Overtime (min)'];
-      const lines = records.map((r) =>
-        [r.date, r.employeeNumber, r.employeeName, r.status === 'absent' ? 'Absent' : 'Present', r.minutesLate, r.overtimeMinutes]
-          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
-          .join(',')
-      );
-      const blob = new Blob([[header.join(','), ...lines].join('\n')], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `attendance-${start}-to-${end}.csv`;
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Could not export attendance.');
-    } finally {
-      setExporting(false);
-    }
-  }
-
-  const columns: Column<AttendanceSummaryRow>[] = [
-    { header: 'Employee', render: (r) => <span className="font-medium">{r.employeeName}</span> },
-    { header: 'Days present', render: (r) => r.daysPresent, align: 'right' },
-    { header: 'Absences', render: (r) => r.daysAbsent, align: 'right' },
-    { header: 'Late (min)', render: (r) => r.totalMinutesLate, align: 'right' },
-    { header: 'Overtime (min)', render: (r) => r.totalOvertimeMinutes, align: 'right' },
-  ];
-
-  return (
-    <div className="rounded-xl border border-line bg-surface p-5 shadow-sm">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-semibold text-ink-900">Attendance &amp; OT</h3>
-          <p className="text-xs text-ink-500">Totals for the selected period. Saved attendance is final.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleExport}
-            disabled={exporting}
-            className="flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-ink-900 transition hover:bg-sand-100 disabled:opacity-50"
-          >
-            <Download size={16} /> {exporting ? 'Exporting…' : 'Export CSV'}
-          </button>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-700"
-          >
-            <Plus size={16} /> Create attendance
-          </button>
-        </div>
-      </div>
-
-      <div className="mb-4 flex items-center gap-3">
-        <input
-          type="date"
-          value={start}
-          onChange={(e) => setStart(e.target.value)}
-          className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink-900 outline-none focus:border-teal-500"
-        />
-        <span className="text-sm text-ink-500">to</span>
-        <input
-          type="date"
-          value={end}
-          onChange={(e) => setEnd(e.target.value)}
-          className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink-900 outline-none focus:border-teal-500"
-        />
-      </div>
-
-      {loading && <LoadingState label="Loading attendance…" />}
-      {!loading && error && <ErrorState message={error} onRetry={refetch} />}
-      {!loading && !error && data && data.length === 0 && (
-        <EmptyState icon={Users} title="No records" description="No attendance records for this period." />
-      )}
-      {!loading && !error && data && data.length > 0 && (
-        <DataTable columns={columns} rows={data} rowKey={(r) => r.employeeId} />
-      )}
-
-      {showCreate && <CreateAttendanceModal onClose={() => setShowCreate(false)} onSaved={refetch} />}
-    </div>
-  );
-}
-
 function DeductionsTab() {
   const { data: runs, loading: runsLoading } = useApiResource<PayrollRun[]>(
     () => payrollService.listRuns(),
@@ -722,9 +455,8 @@ export function Employees() {
   const canDelete = isAdmin(currentUser);
   const [searchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
-  const tab = (tabParam === 'attendance' || tabParam === 'deductions' ? tabParam : 'directory') as
+   const tab = (tabParam === 'deductions' ? tabParam : 'directory') as
     | 'directory'
-    | 'attendance'
     | 'deductions';
   const { data, loading, error, refetch } = useApiResource(() => employeeService.list(), []);
   const [showNew, setShowNew] = useState(false);
@@ -952,7 +684,7 @@ export function Employees() {
       </>
       )}
 
-            {tab === 'attendance' && <AttendanceTab />}
+            
             {tab === 'deductions' && <DeductionsTab />}
 
       {showNew && (

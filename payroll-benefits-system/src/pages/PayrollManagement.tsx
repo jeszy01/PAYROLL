@@ -14,6 +14,7 @@ import { useCurrentUser, isAdmin } from '../hooks/useCurrentUser';
 import { payrollService } from '../services/payroll.service';
 import type { PayrollRun, Payslip, AttendanceSummary } from '../types';
 import { formatCurrency, formatDate } from '../utils/format';
+import { attendanceService } from '../services/attendance.service';
 
 /** "⚠️ X anomalies detected" — shared by the run list and the run detail view. */
 function AnomalyBadge({ count, onClick }: { count: number; onClick: () => void }) {
@@ -103,9 +104,9 @@ function NewRunModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
 
 function AttendanceAdjustmentsPanel({ run, onComputed }: { run: PayrollRun; onComputed: () => void }) {
   const { data, loading, error, refetch } = useApiResource<AttendanceSummary[]>(
-    () => payrollService.listAttendance(run.id),
-    [run.id]
-  );
+  () => attendanceService.getSummary(run.id),
+  [run.id]
+);
   const [rows, setRows] = useState<Record<string, AttendanceSummary>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [computing, setComputing] = useState(false);
@@ -122,16 +123,15 @@ function AttendanceAdjustmentsPanel({ run, onComputed }: { run: PayrollRun; onCo
     if (row.isLocked) return;
     setSavingId(row.employeeId);
     try {
-      await payrollService.saveAttendance(run.id, {
-        employeeId: row.employeeId,
-        daysPresent: row.daysPresent,
-        lateMinutes: row.lateMinutes,
-        overtimeHours: row.overtimeHours,
-        unpaidAbsenceDays: row.unpaidAbsenceDays,
-        cashAdvance: row.cashAdvance,
-        taxRefund: row.taxRefund,
-        slCashConversion: row.slCashConversion,
-      });
+      await attendanceService.saveEntry(run.id, {
+  employeeId: row.employeeId,
+  daysPresent: row.daysPresent,
+  lateMinutes: row.lateMinutes,
+  overtimeHours: row.overtimeHours,
+  unpaidAbsenceDays: row.unpaidAbsenceDays,
+  cashAdvance: row.cashAdvance,
+  slCashConversion: row.slCashConversion,
+});
       refetch();
     } finally {
       setSavingId(null);
@@ -168,28 +168,27 @@ function AttendanceAdjustmentsPanel({ run, onComputed }: { run: PayrollRun; onCo
     );
   }
 
-  const columns: Column<AttendanceSummary>[] = [
-    {
-      header: 'Employee',
-      render: (r) => (
-        <div className="flex items-center gap-2">
-          <span className="font-medium">{r.employeeName}</span>
-          {r.isLocked && (
-            <span className="rounded-full bg-sand-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-500">
-              Locked
-            </span>
-          )}
-        </div>
-      ),
-    },
-    { header: 'Cash advance', render: (r) => numberField(r, 'cashAdvance', { step: 0.01, width: 'w-24' }), align: 'right' },
-    { header: 'Tax refund', render: (r) => numberField(r, 'taxRefund', { step: 0.01, width: 'w-24' }), align: 'right' },
-    { header: 'SL - Cash conversion', render: (r) => numberField(r, 'slCashConversion', { step: 0.01, width: 'w-24' }), align: 'right' },
-    {
-      header: '',
-      render: (r) => (savingId === r.employeeId ? <span className="text-xs text-ink-300">Saving…</span> : null),
-    },
-  ];
+ const columns: Column<AttendanceSummary>[] = [
+  {
+    header: 'Employee',
+    render: (r) => (
+      <div className="flex items-center gap-2">
+        <span className="font-medium">{r.employeeName}</span>
+        {r.isLocked && (
+          <span className="rounded-full bg-sand-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-500">
+            Locked
+          </span>
+        )}
+      </div>
+    ),
+  },
+  { header: 'Cash advance', render: (r) => numberField(r, 'cashAdvance', { step: 0.01, width: 'w-24' }), align: 'right' },
+  { header: 'SL - Cash conversion', render: (r) => numberField(r, 'slCashConversion', { step: 0.01, width: 'w-24' }), align: 'right' },
+  {
+    header: '',
+    render: (r) => (savingId === r.employeeId ? <span className="text-xs text-ink-300">Saving…</span> : null),
+  },
+];
 
   return (
     <div className="space-y-4">

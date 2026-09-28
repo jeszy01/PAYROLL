@@ -78,9 +78,8 @@ export interface PayrollRun {
   payDate: string;
   cutoffLabel: string;
   status: PayrollRunStatus;
-  // Set once HR submits/locks the timesheet for this cutoff. Every
-  // attendance row becomes read-only once this is non-null, and payroll
-  // cannot be computed until it is set.
+  
+  // Set once HR submits/locks the attendance summary for this cutoff.
   timesheetSubmittedAt: string | null;
   isArchived: boolean;
   totalEmployees: number;
@@ -161,7 +160,6 @@ export interface AttendanceSummary {
   overtimeHours: number;
   unpaidAbsenceDays: number;
   cashAdvance: number;
-  taxRefund: number;
   slCashConversion: number;
   isLocked: boolean;
 }
@@ -170,47 +168,16 @@ export interface AttendanceSummary {
 
 // ---------- Attendance / Timesheet ----------
 
-export type HolidayType = 'regular' | 'special_non_working';
-export type ClockInStatus = 'on_time' | 'late';
-export type ClockOutStatus = 'on_time' | 'overtime';
-export type TimesheetDayStatus = 'present' | 'absent';
-
-export interface AttendanceRecord {
+export interface AttendanceSummary {
   id: ID;
-  employeeId: ID;
-  payrollRunId?: ID | null;
-  date: string; // ISO date
-  status?: TimesheetDayStatus | null;
-  timestampIn: string | null;
-  timestampOut: string | null;
-  statusIn: ClockInStatus | null;
-  statusOut: ClockOutStatus | null;
-  minutesLate: number;
-  overtimeMinutes: number;
-  holidayType: HolidayType | null;
-  isLocked: boolean;
-}
-
-export type AttendanceSheetRow = TimesheetEmployeeRow;
-export interface TimesheetEmployeeRow {
-  employeeId: ID;
-  employeeName: string;
-  days: AttendanceRecord[];
-}
-
-export interface TimesheetForRun {
-  isLocked: boolean;
-  timesheetSubmittedAt: string | null;
-  sheet: TimesheetEmployeeRow[];
-}
-
-export interface AttendanceSummaryRow {
+  payrollRunId: ID;
   employeeId: ID;
   employeeName: string;
   daysPresent: number;
-  daysAbsent: number;
-  totalMinutesLate: number;
-  totalOvertimeMinutes: number;
+  unpaidAbsenceDays: number;
+  lateMinutes: number;
+  overtimeHours: number;
+  isLocked: boolean;
 }
 
 export interface SalaryGrade { 
