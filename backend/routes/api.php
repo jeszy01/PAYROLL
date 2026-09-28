@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\PayslipController;
 use App\Http\Controllers\Api\SalaryGradeController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\AuditLogController;
 
 // ---------- Auth ----------
 // Rate-limited so login can't be brute-forced.
@@ -32,6 +33,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // system-administration function, not a day-to-day HR task.
     Route::middleware('role:admin')->group(function () {
         Route::get('/users', [UserController::class, 'index']);
+        Route::get('/audit-logs', [AuditLogController::class, 'index']);
         Route::post('/users', [UserController::class, 'store']);
         Route::patch('/users/{user}', [UserController::class, 'update']);
         Route::delete('/users/{user}', [UserController::class, 'destroy']);

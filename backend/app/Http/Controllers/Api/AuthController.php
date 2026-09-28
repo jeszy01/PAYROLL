@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
+use App\Services\AuditLogger;
 
 class AuthController extends Controller
 {
@@ -29,6 +30,7 @@ class AuthController extends Controller
         $user = $this->findUserByLoginId($credentials['employee_number']);
 
         if (! $user || ! Hash::check($credentials['password'], $user->password)) {
+             AuditLogger::log('login_failed', 'auth', "Failed login attempt for '".\Illuminate\Support\Str::limit($credentials['employee_number'], 100)."'");
             throw ValidationException::withMessages([
                 'employee_number' => ['These credentials do not match our records.'],
             ]);
@@ -36,6 +38,7 @@ class AuthController extends Controller
 
        if (! config('app.otp_enabled') || ! in_array($user->role, self::OTP_ROLES, true)) {
             $token = $user->createToken('pbms-frontend')->plainTextToken;
+            AuditLogger::log('login', 'auth', 'Signed in', $user);
 
             return response()->json([
                 'token' => $token,
@@ -105,6 +108,7 @@ class AuthController extends Controller
         ])->save();
 
         $token = $user->createToken('pbms-frontend')->plainTextToken;
+        AuditLogger::log('login', 'auth', 'Signed in (OTP verified)', $user);
 
         return response()->json([
             'token' => $token,
@@ -119,6 +123,7 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
+        AuditLogger::log('logout', 'auth', 'Signed out');
         $request->user()->currentAccessToken()->delete();
 
         return response()->json(null, 204);

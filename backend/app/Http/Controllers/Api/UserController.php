@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use App\Services\AuditLogger;
 
 class UserController extends Controller
 {
@@ -35,6 +36,8 @@ class UserController extends Controller
             'role' => $data['role'],
             'employee_id' => $data['employeeId'] ?? null,
         ]);
+
+        AuditLogger::log('create', 'users', "Created account for {$user->email} ({$user->role})");
 
         return new UserResource($user);
     }
@@ -100,6 +103,8 @@ class UserController extends Controller
 
         $user->update($data);
 
+        AuditLogger::log('update', 'users', "Updated account {$user->email} (fields: ".implode(', ', array_keys($data)).')');
+
         return new UserResource($user);
     }
 
@@ -111,8 +116,10 @@ class UserController extends Controller
             ], 422);
         }
 
+        $email = $user->email;
         $user->tokens()->delete();
         $user->delete();
+        AuditLogger::log('delete', 'users', "Removed account {$email}");
 
         return response()->json(null, 204);
     }

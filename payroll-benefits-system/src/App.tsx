@@ -11,6 +11,7 @@ import { HmoBenefits } from './pages/HmoBenefits';
 import { Login } from './pages/Login';
 import { authService } from './services/auth.service';
 import { useCurrentUser, isAdmin } from './hooks/useCurrentUser';
+import { AuditLogs } from './pages/AuditLogs';
 
 function RequireAuth({ children }: { children: ReactNode }) {
   if (!authService.hasToken()) {
@@ -59,6 +60,18 @@ function App() {
             </RequireAuth>
           }
         />
+
+        <Route
+          path="/audit-logs"
+          element={
+            <RequireAuth>
+              <RequireAdmin>
+                <AuditLogs />
+              </RequireAdmin>
+            </RequireAuth>
+          }
+        />
+
         <Route
           path="/attendance"
           element={
