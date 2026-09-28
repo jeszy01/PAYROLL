@@ -9,19 +9,16 @@ use App\Models\PayrollRun;
 use Illuminate\Support\Collection;
 
 /**
- * Derives attendance data for payroll from the HR-entered timesheet
- * (AttendanceRecord rows scoped to this payroll_run_id, one per
- * employee per day, each with a status of present/absent/day_off — see
- * AttendanceRecordController::storeForRun()). The timesheet must be
- * submitted/locked (PayrollRun::timesheetIsLocked()) before compute()
- * will call this, so what's read here is always final.
+ * Derives attendance data for payroll from saved AttendanceRecord rows
+ * that fall within the payroll run's cutoff dates. Saved attendance is
+ * final (no edit or delete endpoint exists), so what is read here is
+ * always the recorded truth.
  *
- * An employee with no timesheet rows at all for this run (shouldn't
- * normally happen once the timesheet is locked, but guards against a
- * hire added after submission) falls back to the "full attendance"
- * assumption, since there's no other source of truth for them.
+ * A day with no saved record counts as present. Only a saved "absent"
+ * record reduces pay, so a forgotten entry never costs an employee
+ * their salary.
  *
- * Nothing here is persisted — every call recomputes live from
+ * Nothing here is persisted: every call recomputes live from
  * AttendanceRecord.
  */
 class AttendanceCalculator
@@ -36,7 +33,10 @@ class AttendanceCalculator
     {
         $fullAttendanceDays = $payrollRun->workingDays();
 
-        $recordsByEmployee = AttendanceRecord::where('payroll_run_id', $payrollRun->id)
+        $recordsByEmployee = AttendanceRecord::whereBetween('date', [
+                $payrollRun->pay_period_start->toDateString(),
+                $payrollRun->pay_period_end->toDateString(),
+            ])
             ->get()
             ->groupBy('employee_id');
 
@@ -44,7 +44,12 @@ class AttendanceCalculator
             ->orderBy('last_name')
             ->get()
             ->keyBy('id')
-            ->map(fn (Employee $employee) => $this->forEmployee($payrollRun, $employee, $fullAttendanceDays, $recordsByEmployee->get($employee->id)));
+            ->map(fn (Employee $employee) => $this->forEmployee(
+                $payrollRun,
+                $employee,
+                $fullAttendanceDays,
+                $recordsByEmployee->get($employee->id)
+            ));
     }
 
     private function forEmployee(PayrollRun $payrollRun, Employee $employee, int $fullAttendanceDays, ?Collection $records): AttendanceSummary
@@ -53,32 +58,19 @@ class AttendanceCalculator
             ? $payrollRun->workingDaysFrom($employee->date_hired)
             : $fullAttendanceDays;
 
-        if ($records && $records->isNotEmpty()) {
-            $daysPresent = $records->where('status', 'present')->count();
-            $unpaidAbsenceDays = $records->where('status', 'absent')->count();
+        $records = $records ?? collect();
 
-            return new AttendanceSummary([
-                'payroll_run_id' => $payrollRun->id,
-                'employee_id' => $employee->id,
-                'employee_name' => "{$employee->first_name} {$employee->last_name}",
-                'days_present' => $daysPresent,
-                'late_minutes' => $records->sum('minutes_late'),
-                'overtime_hours' => round($records->sum('overtime_minutes') / 60, 2),
-                'unpaid_absence_days' => $unpaidAbsenceDays,
-                'cash_advance' => 0,
-                'tax_refund' => 0,
-                'sl_cash_conversion' => 0,
-            ]);
-        }
+        $unpaidAbsenceDays = $records->where('status', 'absent')->count();
+        $daysPresent = max($availableDays - $unpaidAbsenceDays, 0);
 
         return new AttendanceSummary([
             'payroll_run_id' => $payrollRun->id,
             'employee_id' => $employee->id,
             'employee_name' => "{$employee->first_name} {$employee->last_name}",
-            'days_present' => $availableDays,
-            'late_minutes' => 0,
-            'overtime_hours' => 0,
-            'unpaid_absence_days' => 0,
+            'days_present' => $daysPresent,
+            'late_minutes' => (int) $records->sum('minutes_late'),
+            'overtime_hours' => round($records->sum('overtime_minutes') / 60, 2),
+            'unpaid_absence_days' => $unpaidAbsenceDays,
             'cash_advance' => 0,
             'tax_refund' => 0,
             'sl_cash_conversion' => 0,
