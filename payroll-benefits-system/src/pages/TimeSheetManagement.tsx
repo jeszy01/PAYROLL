@@ -9,8 +9,7 @@ import { formatDate } from '../utils/format';
 
 const STATUS_LABEL: Record<TimesheetDayStatus, string> = {
   present: 'Present',
-  absent: 'Absent',
-  day_off: 'Day off',
+  absent: 'Absent'
 };
 
 function RunPicker({ runs, onPick }: { runs: PayrollRun[]; onPick: (id: string) => void }) {
