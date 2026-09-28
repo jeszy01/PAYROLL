@@ -6,7 +6,7 @@ import {
   Receipt,
   HeartPulse,
   Users,
-  Settings,
+  
   ChevronsLeft,
   ChevronsRight,
   ChevronDown,
@@ -82,15 +82,7 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { label: 'Employee Directory', to: '/employees?tab=directory', defaultTab: true },
       { label: 'Attendance & OT', to: '/employees?tab=attendance' },
-    ],
-  },
-  {
-    kind: 'group',
-    key: 'settings',
-    label: 'Settings',
-    icon: Settings,
-    adminOnly: true,
-    children: [{ label: 'Roles & Access', to: '/users' }],
+    ]
   },
 ];
 
