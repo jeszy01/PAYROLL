@@ -292,3 +292,12 @@ export interface AnalyticsSummary {
   claimsByType: ClaimsByTypePoint[];
   benefitsUtilization: BenefitsUtilizationPoint[];
 }
+
+export interface AttendanceSummaryRow {
+  employeeId: ID;
+  employeeName: string;
+  daysPresent: number;
+  daysAbsent: number;
+  totalMinutesLate: number;
+  totalOvertimeMinutes: number;
+}

@@ -81,7 +81,7 @@ const NAV_ITEMS: NavItem[] = [
     icon: Users,
     children: [
       { label: 'Employee Directory', to: '/employees?tab=directory', defaultTab: true },
-      { label: 'Attendance & OT', to: '/attendance' },
+      { label: 'Attendance & OT', to: '/employees?tab=attendance' },
     ]
   },
 ];
