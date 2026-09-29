@@ -153,18 +153,18 @@ class AttendanceCutoffController extends Controller
         return $count;
     }
 
-    private function present(AttendanceCutoff $c): array
-    {
-        return [
-            'id' => $c->id,
-            'label' => $c->label,
-            'periodStart' => $c->period_start->toDateString(),
-            'periodEnd' => $c->period_end->toDateString(),
-            'isLocked' => $c->locked_at !== null,
-            'entryCount' => $c->entries_count ?? null,
-            'payrollRunId' => $payrollRunId,
-        ];
-    }
+   private function present(AttendanceCutoff $c, ?string $payrollRunId = null): array
+{
+    return [
+        'id' => $c->id,
+        'label' => $c->label,
+        'periodStart' => $c->period_start->toDateString(),
+        'periodEnd' => $c->period_end->toDateString(),
+        'isLocked' => $c->locked_at !== null,
+        'entryCount' => $c->entries_count ?? null,
+        'payrollRunId' => $payrollRunId,
+    ];
+}
 
     private function presentEntry(AttendanceCutoffEntry $e): array
     {
