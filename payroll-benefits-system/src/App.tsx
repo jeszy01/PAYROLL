@@ -12,6 +12,7 @@ import { Login } from './pages/Login';
 import { authService } from './services/auth.service';
 import { useCurrentUser, isAdmin } from './hooks/useCurrentUser';
 import { AuditLogs } from './pages/AuditLogs';
+import { AttendanceDemo } from './pages/AttendanceDemo';
 
 function RequireAuth({ children }: { children: ReactNode }) {
   if (!authService.hasToken()) {
@@ -81,6 +82,8 @@ function App() {
           }
         />
         
+         <Route path="/attendance-demo" element={<AttendanceDemo />} />
+
         <Route
           path="/payroll"
           element={

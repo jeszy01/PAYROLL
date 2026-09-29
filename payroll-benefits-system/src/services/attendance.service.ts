@@ -40,6 +40,23 @@ export interface AttendanceCutoffEntry {
   overtimeHours: number;
 }
 
+export interface AttendanceDemoDay {
+  employeeId: string;
+  date: string;
+  timeIn: string | null;
+  timeOut: string | null;
+  status: 'present' | 'absent';
+  workedMinutes: number;
+  lateMinutes: number;
+  undertimeMinutes: number;
+  overtimeHours: number;
+  regularPay: number;
+  otPay: number;
+  lateDeduction: number;
+  undertimeDeduction: number;
+  netPay: number;
+}
+
 export interface AttendanceCutoffDetail extends AttendanceCutoff {
   entries: AttendanceCutoffEntry[];
 }
@@ -77,6 +94,12 @@ export const attendanceService = {
     apiClient.get<AttendanceCutoffEntry[]>(
       `/attendance/cutoffs/template?periodStart=${periodStart}&periodEnd=${periodEnd}`
     ),
+      saveDemoDay: (p: { employeeId: string; date: string; timeIn: string; timeOut: string }) =>
+    apiClient.post<AttendanceDemoDay>('/attendance/demo/day', p),
+  markDemoAbsent: (p: { employeeId: string; date: string }) =>
+    apiClient.post<AttendanceDemoDay>('/attendance/demo/absent', p),
+  resetDemoDay: (p: { employeeId: string; date: string }) =>
+    apiClient.post<{ ok: boolean }>('/attendance/demo/reset', p),
   saveCutoff: (payload: {
     label: string;
     periodStart: string;
