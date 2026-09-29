@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AttendanceSummaryController;
+use App\Http\Controllers\Api\AttendanceCutoffController;
 
 // ---------- Auth ----------
 // Rate-limited so login can't be brute-forced.
@@ -71,9 +72,13 @@ Route::post('/payroll/runs/{payrollRun}/attendance-summary', [AttendanceSummaryC
 
         // Read-only date-range summary for the Employees page Attendance tab.
         Route::get('/attendance/summary', [AttendanceRecordController::class, 'summaryForPeriod']);
-                Route::get('/attendance/day', [AttendanceRecordController::class, 'dayForDate']);
+        Route::get('/attendance/day', [AttendanceRecordController::class, 'dayForDate']);
         Route::post('/attendance/day', [AttendanceRecordController::class, 'storeDay']);
         Route::get('/attendance/records', [AttendanceRecordController::class, 'records']);
+                Route::get('/attendance/cutoffs', [AttendanceCutoffController::class, 'index']);
+        Route::get('/attendance/cutoffs/template', [AttendanceCutoffController::class, 'template']);
+        Route::post('/attendance/cutoffs', [AttendanceCutoffController::class, 'store']);
+        Route::get('/attendance/cutoffs/{attendanceCutoff}', [AttendanceCutoffController::class, 'show']);
 
         // ---------- Payroll Management ----------
         // HR prepares and computes runs; final approval/release (which triggers
