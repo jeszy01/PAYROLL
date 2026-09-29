@@ -169,12 +169,7 @@ export function AttendanceSummaryPage() {
   const selectedRun = runs?.find((r) => r.id === selectedRunId) ?? null;
 
   return (
-    <div className="min-h-screen bg-sand-50 px-6 py-10">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-ink-900">Attendance Summary</h1>
-          <p className="mt-1 text-sm text-ink-500">Enter attendance totals per cutoff. Each row locks once saved.</p>
-        </div>
+   <Layout title="Attendance & OT" subtitle="Enter attendance totals per cutoff">
 
         {selectedRun ? (
           <div className="space-y-4">
@@ -194,7 +189,6 @@ export function AttendanceSummaryPage() {
             {!loading && !error && <RunPicker runs={draftRuns} onPick={setSelectedRunId} />}
           </>
         )}
-      </div>
-    </div>
-  );
+        </Layout>
+);
 }
