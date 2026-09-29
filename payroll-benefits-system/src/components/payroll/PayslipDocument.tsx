@@ -13,7 +13,7 @@ const COMPANY_NAME = 'Archon Nell Incorporated';
 
 /** Plain comma-formatted number, no currency symbol — matches the reference slip. */
 function n(value: number): string {
-  return value.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (value ?? 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 /** A line item: dash when zero, parentheses when a deduction, plain number otherwise. */
