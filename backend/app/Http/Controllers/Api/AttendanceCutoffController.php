@@ -95,15 +95,7 @@ class AttendanceCutoffController extends Controller
             'entries.*.overtimeHours' => ['required', 'numeric', 'min:0', 'max:744'],
         ]);
 
-        $overlaps = AttendanceCutoff::where('period_start', '<=', $data['periodEnd'])
-            ->where('period_end', '>=', $data['periodStart'])
-            ->exists();
-
-        if ($overlaps) {
-            return response()->json([
-                'message' => 'An attendance cutoff already exists for this period (or one that overlaps it). Saved attendance is final and cannot be replaced.',
-            ], 422);
-        }
+      
 
         $employees = Employee::where('employment_status', 'active')->get()->keyBy('id');
 
