@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AttendanceSummaryController;
 use App\Http\Controllers\Api\AttendanceCutoffController;
-
+use App\Http\Controllers\Api\AttendanceDemoController;
 // ---------- Auth ----------
 // Rate-limited so login can't be brute-forced.
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
@@ -79,6 +79,11 @@ Route::post('/payroll/runs/{payrollRun}/attendance-summary', [AttendanceSummaryC
         Route::get('/attendance/cutoffs/template', [AttendanceCutoffController::class, 'template']);
         Route::post('/attendance/cutoffs', [AttendanceCutoffController::class, 'store']);
         Route::get('/attendance/cutoffs/{attendanceCutoff}', [AttendanceCutoffController::class, 'show']);
+
+        Route::get('/attendance/demo', [AttendanceDemoController::class, 'index']);
+Route::post('/attendance/demo/day', [AttendanceDemoController::class, 'save']);
+Route::post('/attendance/demo/absent', [AttendanceDemoController::class, 'markAbsent']);
+Route::post('/attendance/demo/reset', [AttendanceDemoController::class, 'reset']);
 
         // ---------- Payroll Management ----------
         // HR prepares and computes runs; final approval/release (which triggers
