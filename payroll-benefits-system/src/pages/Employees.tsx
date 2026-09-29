@@ -11,9 +11,9 @@ import { TextField, SelectField } from '../components/common/FormField';
 import { useApiResource } from '../hooks/useApiResource';
 import { useCurrentUser, isAdmin } from '../hooks/useCurrentUser';
 import { employeeService } from '../services/employee.service';
-import { attendanceService } from '../services/attendance.service';
+import { attendanceService, type AttendanceCutoffDetail, type AttendanceCutoffEntry } from '../services/attendance.service';
 import { payrollService } from '../services/payroll.service';
-import type { Employee, EmploymentStatus, EmploymentType, CivilStatus, AttendanceSummary, PayrollRun, Payslip } from '../types';
+import type { Employee, EmploymentStatus, EmploymentType, CivilStatus, PayrollRun, Payslip } from '../types';
 import { formatCurrency, formatDate } from '../utils/format';
 
 const STATUS_LABEL: Record<EmploymentStatus, string> = {
@@ -408,28 +408,27 @@ const ENTRY_COLUMNS: { key: EntryField; label: string }[] = [
 ];
 
 function CreateAttendanceModal({
-  runs,
-  initialRunId,
   onClose,
   onSaved,
 }: {
-  runs: PayrollRun[];
-  initialRunId: string;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (created: AttendanceCutoffDetail) => void;
 }) {
-  const [runId, setRunId] = useState(initialRunId);
-  const { data, loading, error, refetch } = useApiResource<AttendanceSummary[]>(
-    () => (runId ? attendanceService.getSummary(runId) : Promise.resolve([])),
-    [runId]
-  );
+  const [label, setLabel] = useState('');
+  const [periodStart, setPeriodStart] = useState('');
+  const [periodEnd, setPeriodEnd] = useState('');
   const [draft, setDraft] = useState<Record<string, Partial<Record<EntryField, number>>>>({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const open = (data ?? []).filter((r) => !r.isLocked);
+  const validPeriod = periodStart !== '' && periodEnd !== '' && periodEnd >= periodStart;
 
-  function field(row: AttendanceSummary, key: EntryField): number {
+  const { data, loading, error, refetch } = useApiResource<AttendanceCutoffEntry[]>(
+    () => (validPeriod ? attendanceService.getCutoffTemplate(periodStart, periodEnd) : Promise.resolve([])),
+    [periodStart, periodEnd]
+  );
+
+  function field(row: AttendanceCutoffEntry, key: EntryField): number {
     return draft[row.employeeId]?.[key] ?? row[key] ?? 0;
   }
 
@@ -438,36 +437,31 @@ function CreateAttendanceModal({
   }
 
   async function handleSave() {
-    if (open.length === 0) return;
-    const run = runs.find((r) => r.id === runId);
-    if (!confirm(`Save attendance for ${run?.cutoffLabel ?? 'this cutoff'}? Once saved, it cannot be edited or deleted.`)) {
-      return;
-    }
+    if (!validPeriod || !data || data.length === 0) return;
+    const finalLabel = label.trim() || `${periodStart} to ${periodEnd}`;
+    if (!confirm(`Save attendance for ${finalLabel}? Once saved, it cannot be edited or deleted.`)) return;
     setSaving(true);
     setSaveError(null);
-    const failed: string[] = [];
-    for (const r of open) {
-      try {
-        await attendanceService.saveEntry(runId, {
+    try {
+      const created = await attendanceService.saveCutoff({
+        label: finalLabel,
+        periodStart,
+        periodEnd,
+        entries: data.map((r) => ({
           employeeId: r.employeeId,
+          employeeName: r.employeeName,
           daysPresent: field(r, 'daysPresent'),
           unpaidAbsenceDays: field(r, 'unpaidAbsenceDays'),
           lateMinutes: field(r, 'lateMinutes'),
           overtimeHours: field(r, 'overtimeHours'),
-          cashAdvance: 0,
-          slCashConversion: 0,
-        });
-      } catch (err) {
-        failed.push(`${r.employeeName}: ${err instanceof Error ? err.message : 'could not save'}`);
-      }
-    }
-    setSaving(false);
-    onSaved();
-    if (failed.length === 0) {
+        })),
+      });
+      onSaved(created);
       onClose();
-    } else {
-      setSaveError(failed.join(' • '));
-      refetch();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Could not save attendance.');
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -477,80 +471,89 @@ function CreateAttendanceModal({
   return (
     <Modal title="Create attendance" onClose={onClose} width="lg">
       <div className="space-y-4">
-        {runs.length === 0 ? (
-          <EmptyState
-            icon={Users}
-            title="No draft payroll runs"
-            description="Start a new payroll run from Payroll Management first."
-          />
-        ) : (
-          <>
-            <div className="flex flex-wrap items-center gap-3">
-              <label className="text-sm text-ink-500">
-                Cutoff
-                <select
-                  value={runId}
-                  onChange={(e) => {
-                    setRunId(e.target.value);
-                    setDraft({});
-                  }}
-                  disabled={saving}
-                  className={`${cell} ml-2`}
-                >
-                  {runs.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.cutoffLabel}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <p className="text-xs text-ink-500">Final once saved. It cannot be edited or deleted.</p>
-            </div>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="text-sm text-ink-500">
+            Cutoff label
+            <input
+              type="text"
+              value={label}
+              placeholder="e.g. Sept 1-15"
+              onChange={(e) => setLabel(e.target.value)}
+              disabled={saving}
+              className={`${cell} mt-1 block w-40`}
+            />
+          </label>
+          <label className="text-sm text-ink-500">
+            Period start
+            <input
+              type="date"
+              value={periodStart}
+              onChange={(e) => {
+                setPeriodStart(e.target.value);
+                setDraft({});
+              }}
+              disabled={saving}
+              className={`${cell} mt-1 block`}
+            />
+          </label>
+          <label className="text-sm text-ink-500">
+            Period end
+            <input
+              type="date"
+              value={periodEnd}
+              onChange={(e) => {
+                setPeriodEnd(e.target.value);
+                setDraft({});
+              }}
+              disabled={saving}
+              className={`${cell} mt-1 block`}
+            />
+          </label>
+        </div>
+        <p className="text-xs text-ink-500">Final once saved. It cannot be edited or deleted.</p>
 
-            {loading && <LoadingState label="Loading employees…" />}
-            {!loading && error && <ErrorState message={error} onRetry={refetch} />}
-            {!loading && !error && data && data.length === 0 && (
-              <EmptyState icon={Users} title="No active employees" description="Add active employees first." />
-            )}
-            {!loading && !error && data && data.length > 0 && (
-              <div className="max-h-[50vh] overflow-y-auto rounded-xl border border-line">
-                <table className="w-full text-left text-sm">
-                  <thead className="sticky top-0 bg-sand-50">
-                    <tr className="text-xs uppercase tracking-wide text-ink-500">
-                      <th className="px-3 py-2">Employee</th>
-                      {ENTRY_COLUMNS.map((c) => (
-                        <th key={c.key} className="px-3 py-2 text-center">
-                          {c.label}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.map((r) => (
-                      <tr key={r.employeeId} className="border-t border-line">
-                        <td className="px-3 py-2 font-medium text-ink-900">
-                          {r.employeeName}
-                          {r.isLocked && <span className="ml-2 text-xs font-normal text-ink-500">Saved</span>}
-                        </td>
-                        {ENTRY_COLUMNS.map((c) => (
-                          <td key={c.key} className="px-2 py-2 text-center">
-                            <input
-                              type="number"
-                              min={0}
-                              value={field(r, c.key)}
-                              disabled={r.isLocked || saving}
-                              onChange={(e) => setField(r.employeeId, c.key, Number(e.target.value))}
-                              className={`${cell} w-20 text-center`}
-                            />
-                          </td>
-                        ))}
-                      </tr>
+        {!validPeriod && (
+          <p className="text-sm text-ink-500">Choose the period start and end to load the employees.</p>
+        )}
+        {validPeriod && loading && <LoadingState label="Loading employees…" />}
+        {validPeriod && !loading && error && <ErrorState message={error} onRetry={refetch} />}
+        {validPeriod && !loading && !error && data && data.length === 0 && (
+          <EmptyState icon={Users} title="No active employees" description="Add active employees first." />
+        )}
+        {validPeriod && !loading && !error && data && data.length > 0 && (
+          <div className="max-h-[50vh] overflow-y-auto rounded-xl border border-line">
+            <table className="w-full text-left text-sm">
+              <thead className="sticky top-0 bg-sand-50">
+                <tr className="text-xs uppercase tracking-wide text-ink-500">
+                  <th className="px-3 py-2">Employee</th>
+                  {ENTRY_COLUMNS.map((c) => (
+                    <th key={c.key} className="px-3 py-2 text-center">
+                      {c.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.map((r) => (
+                  <tr key={r.employeeId} className="border-t border-line">
+                    <td className="px-3 py-2 font-medium text-ink-900">{r.employeeName}</td>
+                    {ENTRY_COLUMNS.map((c) => (
+                      <td key={c.key} className="px-2 py-2 text-center">
+                        <input
+                          type="number"
+                          min={0}
+                          value={field(r, c.key)}
+                          disabled={saving}
+                          onChange={(e) => setField(r.employeeId, c.key, Number(e.target.value))}
+                          className={`${cell} w-20 text-center`}
+                        />
+                      </td>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
 
         {saveError && <p className="text-sm text-bad-600">{saveError}</p>}
@@ -561,10 +564,10 @@ function CreateAttendanceModal({
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving || loading || open.length === 0}
+            disabled={saving || loading || !validPeriod || !data || data.length === 0}
             className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:opacity-50"
           >
-            {saving ? 'Saving…' : open.length === 0 && (data?.length ?? 0) > 0 ? 'Already saved' : 'Save & lock'}
+            {saving ? 'Saving…' : 'Save & lock'}
           </button>
         </div>
       </div>
@@ -573,47 +576,50 @@ function CreateAttendanceModal({
 }
 
 function AttendanceTab() {
-  const { data: runs, loading: runsLoading } = useApiResource<PayrollRun[]>(() => payrollService.listRuns(), []);
-  const [runId, setRunId] = useState('');
+  const {
+    data: cutoffs,
+    loading: cutoffsLoading,
+    error: cutoffsError,
+    refetch: refetchCutoffs,
+  } = useApiResource<AttendanceCutoffDetail[]>(
+    () => attendanceService.listCutoffs() as Promise<AttendanceCutoffDetail[]>,
+    []
+  );
+  const [selectedId, setSelectedId] = useState('');
   const [showCreate, setShowCreate] = useState(false);
 
-  const visibleRuns = (runs ?? []).filter((r) => !r.isArchived);
-  const draftRuns = visibleRuns.filter((r) => r.status === 'draft');
-  const selectedRunId = runId || visibleRuns[0]?.id || '';
-  const selectedRun = visibleRuns.find((r) => r.id === selectedRunId);
+  const activeId = selectedId || cutoffs?.[0]?.id || '';
 
-  const { data, loading, error, refetch } = useApiResource<AttendanceSummary[]>(
-    () => (selectedRunId ? attendanceService.getSummary(selectedRunId) : Promise.resolve([])),
-    [selectedRunId]
+  const { data: detail, loading, error, refetch } = useApiResource<AttendanceCutoffDetail | null>(
+    () => (activeId ? attendanceService.getCutoff(activeId) : Promise.resolve(null)),
+    [activeId]
   );
 
-  const saved = (data ?? []).filter((r) => r.isLocked);
+  const entries = detail?.entries ?? [];
 
   function exportCsv() {
-    if (saved.length === 0) return;
+    if (!detail || entries.length === 0) return;
     const esc = (v: string | number) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const header = ['Employee', 'Days Present', 'Absences', 'Late (min)', 'Overtime (hrs)'];
-    const lines = saved.map((r) =>
-      [r.employeeName, r.daysPresent ?? 0, r.unpaidAbsenceDays ?? 0, r.lateMinutes ?? 0, r.overtimeHours ?? 0]
-        .map(esc)
-        .join(',')
+    const lines = entries.map((r) =>
+      [r.employeeName, r.daysPresent, r.unpaidAbsenceDays, r.lateMinutes, r.overtimeHours].map(esc).join(',')
     );
     const csv = '\uFEFF' + [header.map(esc).join(','), ...lines].join('\r\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `attendance-${(selectedRun?.cutoffLabel ?? 'cutoff').replace(/\s+/g, '-')}.csv`;
+    link.download = `attendance-${detail.label.replace(/\s+/g, '-')}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   }
 
-  const columns: Column<AttendanceSummary>[] = [
+  const columns: Column<AttendanceCutoffEntry>[] = [
     { header: 'Employee', render: (r) => <span className="font-medium">{r.employeeName}</span> },
-    { header: 'Days present', render: (r) => r.daysPresent ?? 0, align: 'right' },
-    { header: 'Absences', render: (r) => r.unpaidAbsenceDays ?? 0, align: 'right' },
-    { header: 'Late (min)', render: (r) => r.lateMinutes ?? 0, align: 'right' },
-    { header: 'Overtime (hrs)', render: (r) => r.overtimeHours ?? 0, align: 'right' },
+    { header: 'Days present', render: (r) => r.daysPresent, align: 'right' },
+    { header: 'Absences', render: (r) => r.unpaidAbsenceDays, align: 'right' },
+    { header: 'Late (min)', render: (r) => r.lateMinutes, align: 'right' },
+    { header: 'Overtime (hrs)', render: (r) => r.overtimeHours, align: 'right' },
   ];
 
   return (
@@ -626,51 +632,60 @@ function AttendanceTab() {
         <div className="flex items-center gap-3">
           <button
             onClick={exportCsv}
-            disabled={saved.length === 0}
+            disabled={entries.length === 0}
             className="flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-ink-900 transition hover:bg-sand-100 disabled:opacity-50"
           >
             <Download size={16} /> Export CSV
           </button>
           <button
             onClick={() => setShowCreate(true)}
-            disabled={draftRuns.length === 0}
-            className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-700"
           >
             <Plus size={16} /> Create attendance
           </button>
         </div>
       </div>
 
-      <div className="mb-4">
-        <select
-          value={selectedRunId}
-          onChange={(e) => setRunId(e.target.value)}
-          className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink-900 outline-none focus:border-teal-500"
-        >
-          {runsLoading && <option>Loading cutoffs…</option>}
-          {visibleRuns.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.cutoffLabel}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {loading && <LoadingState label="Loading attendance…" />}
-      {!loading && error && <ErrorState message={error} onRetry={refetch} />}
-      {!loading && !error && saved.length === 0 && (
-        <EmptyState icon={Users} title="No records" description="No saved attendance for this cutoff yet." />
+      {cutoffs && cutoffs.length > 0 && (
+        <div className="mb-4">
+          <select
+            value={activeId}
+            onChange={(e) => setSelectedId(e.target.value)}
+            className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink-900 outline-none focus:border-teal-500"
+          >
+            {cutoffs.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        </div>
       )}
-      {!loading && !error && saved.length > 0 && (
-        <DataTable columns={columns} rows={saved} rowKey={(r) => r.employeeId} />
+
+      {cutoffsLoading && <LoadingState label="Loading cutoffs…" />}
+      {!cutoffsLoading && cutoffsError && <ErrorState message={cutoffsError} onRetry={refetchCutoffs} />}
+      {!cutoffsLoading && !cutoffsError && cutoffs && cutoffs.length === 0 && (
+        <EmptyState
+          icon={Users}
+          title="No attendance yet"
+          description="Click Create attendance to add the first cutoff."
+        />
+      )}
+      {!cutoffsLoading && !cutoffsError && activeId && loading && <LoadingState label="Loading attendance…" />}
+      {!cutoffsLoading && !cutoffsError && activeId && !loading && error && (
+        <ErrorState message={error} onRetry={refetch} />
+      )}
+      {!cutoffsLoading && !cutoffsError && activeId && !loading && !error && entries.length > 0 && (
+        <DataTable columns={columns} rows={entries} rowKey={(r) => r.employeeId} />
       )}
 
       {showCreate && (
         <CreateAttendanceModal
-          runs={draftRuns}
-          initialRunId={draftRuns.find((r) => r.id === selectedRunId)?.id ?? draftRuns[0]?.id ?? ''}
           onClose={() => setShowCreate(false)}
-          onSaved={refetch}
+          onSaved={(created) => {
+            setSelectedId(created.id);
+            refetchCutoffs();
+          }}
         />
       )}
     </div>

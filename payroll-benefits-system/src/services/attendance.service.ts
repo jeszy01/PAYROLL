@@ -21,6 +21,28 @@ export interface AttendanceRecordRow {
   overtimeMinutes: number;
 }
 
+export interface AttendanceCutoff {
+  id: string;
+  label: string;
+  periodStart: string;
+  periodEnd: string;
+  isLocked: boolean;
+  entryCount: number | null;
+}
+
+export interface AttendanceCutoffEntry {
+  employeeId: string;
+  employeeName: string;
+  daysPresent: number;
+  unpaidAbsenceDays: number;
+  lateMinutes: number;
+  overtimeHours: number;
+}
+
+export interface AttendanceCutoffDetail extends AttendanceCutoff {
+  entries: AttendanceCutoffEntry[];
+}
+
 export const attendanceService = {
   getSummary: (payrollRunId: string) =>
     apiClient.get<AttendanceSummary[]>(`/payroll/runs/${payrollRunId}/attendance-summary`),
@@ -47,6 +69,19 @@ export const attendanceService = {
   }) => apiClient.post<{ created: number; skipped: number }>('/attendance/day', payload),
   getRecords: (start: string, end: string) =>
     apiClient.get<AttendanceRecordRow[]>(`/attendance/records?start=${start}&end=${end}`),
+
+    listCutoffs: () => apiClient.get<AttendanceCutoff[]>('/attendance/cutoffs'),
+  getCutoff: (id: string) => apiClient.get<AttendanceCutoffDetail>(`/attendance/cutoffs/${id}`),
+  getCutoffTemplate: (periodStart: string, periodEnd: string) =>
+    apiClient.get<AttendanceCutoffEntry[]>(
+      `/attendance/cutoffs/template?periodStart=${periodStart}&periodEnd=${periodEnd}`
+    ),
+  saveCutoff: (payload: {
+    label: string;
+    periodStart: string;
+    periodEnd: string;
+    entries: AttendanceCutoffEntry[];
+  }) => apiClient.post<AttendanceCutoffDetail>('/attendance/cutoffs', payload),
 };
 
    export interface AttendanceDayRow {
