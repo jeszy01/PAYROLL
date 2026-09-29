@@ -16,6 +16,7 @@ class PayrollRun extends Model
         'pay_period_start', 'pay_period_end', 'pay_date', 'cutoff_label',
         'status', 'timesheet_submitted_at', 'archived_at',
         'total_employees', 'gross_total', 'deductions_total', 'net_total',
+        'attendance_cutoff_id',
     ];
 
     protected function casts(): array

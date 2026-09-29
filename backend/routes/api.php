@@ -87,6 +87,8 @@ Route::post('/payroll/runs/{payrollRun}/attendance-summary', [AttendanceSummaryC
         Route::post('/payroll/runs', [PayrollRunController::class, 'store']);
         Route::get('/payroll/runs/{payrollRun}', [PayrollRunController::class, 'show']);
         Route::post('/payroll/runs/{payrollRun}/compute', [PayrollRunController::class, 'compute']);
+        Route::get('/payroll/runs/{payrollRun}/review', [PayrollRunController::class, 'review']);
+        Route::post('/payroll/runs/{payrollRun}/review/adjustments', [PayrollRunController::class, 'saveReviewAdjustment']);
         Route::post('/payroll/runs/{payrollRun}/approve', [PayrollRunController::class, 'approve'])->middleware('role:admin');
         Route::post('/payroll/runs/{payrollRun}/release', [PayrollRunController::class, 'release'])->middleware('role:admin');
         Route::post('/payroll/runs/{payrollRun}/archive', [PayrollRunController::class, 'archive'])->middleware('role:admin');

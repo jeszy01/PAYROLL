@@ -10,18 +10,25 @@ use App\Services\AuditLogger;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\PayrollRun;
 
 class AttendanceCutoffController extends Controller
 {
     /** All saved cutoffs, newest period first. */
-    public function index()
-    {
-        $cutoffs = AttendanceCutoff::withCount('entries')
-            ->orderByDesc('period_start')
-            ->get();
+  public function index()
+{
+    $cutoffs = AttendanceCutoff::withCount('entries')
+        ->orderByDesc('period_start')
+        ->get();
 
-        return response()->json($cutoffs->map(fn ($c) => $this->present($c))->values());
-    }
+    // magkaibang database, kaya hiwalay na query
+    $runIds = PayrollRun::whereIn('attendance_cutoff_id', $cutoffs->pluck('id'))
+        ->pluck('id', 'attendance_cutoff_id');
+
+    return response()->json(
+        $cutoffs->map(fn ($c) => $this->present($c, $runIds[$c->id] ?? null))->values()
+    );
+}
 
     /** One cutoff with its per-employee totals. */
     public function show(AttendanceCutoff $attendanceCutoff)
@@ -163,6 +170,7 @@ class AttendanceCutoffController extends Controller
             'periodEnd' => $c->period_end->toDateString(),
             'isLocked' => $c->locked_at !== null,
             'entryCount' => $c->entries_count ?? null,
+            'payrollRunId' => $payrollRunId,
         ];
     }
 

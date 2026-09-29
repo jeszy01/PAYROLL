@@ -8,11 +8,13 @@ use App\Services\AttendanceCalculator;
 use App\Models\Employee;
 use App\Models\PayrollAnomaly;
 use App\Models\PayrollRun;
+use App\Models\PayrollRunAdjustment;
 use App\Models\Payslip;
 use App\Services\PayrollAnomalyDetector;
 use App\Services\PayslipMailer;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use App\Models\AttendanceCutoff;
 
@@ -22,18 +24,10 @@ class PayrollRunController extends Controller
     {
     }
 
-    /**
-     * Eager-loads the two anomaly counts every list/detail view needs for
-     * the "⚠️ X anomalies detected" badge and the Approve-button gate,
-     * without an extra query per run.
-     */
     private function withAnomalyCounts(Builder $query): Builder
     {
         return $query->withCount([
-            // "Unresolved" = anything still needing eyes on it, i.e. not dismissed.
             'anomalies as unresolved_anomalies_count' => fn ($q) => $q->where('status', '!=', PayrollAnomaly::STATUS_DISMISSED),
-            // "Blocking" = what actually disables Approve — a critical flag
-            // that hasn't been dismissed, or anything marked needs_correction.
             'anomalies as blocking_anomalies_count' => fn ($q) => $q->where('status', '!=', PayrollAnomaly::STATUS_DISMISSED)
                 ->where(fn ($q2) => $q2->where('severity', PayrollAnomaly::SEVERITY_CRITICAL)->orWhere('status', PayrollAnomaly::STATUS_NEEDS_CORRECTION)),
         ]);
@@ -53,17 +47,30 @@ class PayrollRunController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'payPeriodStart' => ['required', 'date'],
-            'payPeriodEnd' => ['required', 'date', 'after_or_equal:payPeriodStart'],
+            'attendanceCutoffId' => ['required', 'uuid'],
             'payDate' => ['required', 'date'],
-            'cutoffLabel' => ['required', 'string', 'max:255'],
         ]);
 
+        $cutoff = AttendanceCutoff::find($data['attendanceCutoffId']);
+
+        if (! $cutoff) {
+            return response()->json(['message' => 'The selected attendance cutoff could not be found.'], 422);
+        }
+
+        if ($cutoff->locked_at === null) {
+            return response()->json(['message' => 'Only a locked attendance cutoff can be used for payroll.'], 422);
+        }
+
+        if (PayrollRun::where('attendance_cutoff_id', $cutoff->id)->exists()) {
+            return response()->json(['message' => 'This attendance cutoff already has a payroll run.'], 422);
+        }
+
         $run = PayrollRun::create([
-            'pay_period_start' => $data['payPeriodStart'],
-            'pay_period_end' => $data['payPeriodEnd'],
+            'attendance_cutoff_id' => $cutoff->id,
+            'pay_period_start' => $cutoff->period_start,
+            'pay_period_end' => $cutoff->period_end,
             'pay_date' => $data['payDate'],
-            'cutoff_label' => $data['cutoffLabel'],
+            'cutoff_label' => $cutoff->label,
             'status' => 'draft',
         ]);
 
@@ -77,6 +84,68 @@ class PayrollRunController extends Controller
         );
     }
 
+    /** Attendance summaries for a run's cutoff, with SL conversion adjustments applied. */
+    private function summariesForRun(PayrollRun $run): Collection
+    {
+        $cutoff = AttendanceCutoff::findOrFail($run->attendance_cutoff_id);
+        $sl = PayrollRunAdjustment::where('payroll_run_id', $run->id)
+            ->pluck('sl_cash_conversion', 'employee_id');
+
+        return $this->attendanceCalculator->forCutoff($cutoff)
+            ->map(function ($s) use ($sl) {
+                $s->sl_cash_conversion = (float) ($sl[$s->employee_id] ?? 0);
+                return $s;
+            })
+            ->values();
+    }
+
+    public function review(PayrollRun $payrollRun)
+    {
+        if (! $payrollRun->attendance_cutoff_id) {
+            return response()->json(['message' => 'This run has no attendance cutoff.'], 422);
+        }
+
+        $rows = $this->summariesForRun($payrollRun);
+        $employees = Employee::whereIn('id', $rows->pluck('employee_id'))->get()->keyBy('id');
+
+        return response()->json($rows->map(function ($s) use ($employees) {
+            $e = $employees->get($s->employee_id);
+            return [
+                'employeeId' => $s->employee_id,
+                'employeeName' => $s->employee_name,
+                'daysPresent' => (float) $s->days_present,
+                'lateMinutes' => (int) $s->late_minutes,
+                'overtimeHours' => (float) $s->overtime_hours,
+                'unpaidAbsenceDays' => (float) $s->unpaid_absence_days,
+                'cashAdvance' => 0,
+                'otherDeductions' => $e ? round(
+                    (float) $e->sss_loan_per_cutoff + (float) $e->hdmf_loan_per_cutoff + (float) $e->loan_deduction_per_cutoff, 2
+                ) : 0,
+                'approvedClaims' => 0,
+                'slCashConversion' => (float) $s->sl_cash_conversion,
+            ];
+        })->values());
+    }
+
+    public function saveReviewAdjustment(Request $request, PayrollRun $payrollRun)
+    {
+        if ($payrollRun->status !== 'draft') {
+            return response()->json(['message' => 'Only a draft run can be adjusted.'], 422);
+        }
+
+        $data = $request->validate([
+            'employeeId' => ['required', 'uuid'],
+            'slCashConversion' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        PayrollRunAdjustment::updateOrCreate(
+            ['payroll_run_id' => $payrollRun->id, 'employee_id' => $data['employeeId']],
+            ['sl_cash_conversion' => $data['slCashConversion']]
+        );
+
+        return response()->json(['ok' => true]);
+    }
+
     public function compute(Request $request, PayrollRun $payrollRun)
     {
         if ($payrollRun->status !== 'draft') {
@@ -85,41 +154,21 @@ class PayrollRunController extends Controller
             ], 422);
         }
 
-       
-
-        // Simplified statutory rates — see NOTE above.
-        $sssRate = 0.045;        // 4.5% of Total Salary, employee share (simplified)
-        $philhealthRate = 0.025; // 2.5% of Total Salary, employee share (simplified)
-        $pagibigRate = 0.02;     // 2% of Total Salary, capped (this is what the client calls "HDMF")
+        // Simplified statutory rates
+        $sssRate = 0.045;
+        $philhealthRate = 0.025;
+        $pagibigRate = 0.02;
         $pagibigCap = 100.0;
-        $taxableThreshold = 20833.0; // simplified TRAIN-law-style monthly exemption
+        $taxableThreshold = 20833.0;
         $taxRate = 0.10;
 
-        // Per client: 15-minute grace period before lateness is deducted.
         $lateGraceMinutes = 15;
 
-        // Working days for this specific cutoff, derived from its actual
-        // dates (weekdays only) — cutoffs are not a fixed length (26-9 vs
-        // 10-25), so this can't be a hardcoded constant.
         $workingDaysPerPeriod = $payrollRun->workingDays();
 
-               $data = $request->validate([
-            'attendanceCutoffId' => ['nullable', 'uuid'],
-        ]);
-
-        if (! empty($data['attendanceCutoffId'])) {
-            $cutoff = AttendanceCutoff::find($data['attendanceCutoffId']);
-
-            if (! $cutoff) {
-                return response()->json([
-                    'message' => 'The selected attendance cutoff could not be found.',
-                ], 422);
-            }
-
-            $summaries = $this->attendanceCalculator->forCutoff($cutoff)->values();
-        } else {
-            $summaries = $this->attendanceCalculator->forPayrollRun($payrollRun)->values();
-        }
+        $summaries = $payrollRun->attendance_cutoff_id
+            ? $this->summariesForRun($payrollRun)
+            : $this->attendanceCalculator->forPayrollRun($payrollRun)->values();
 
         if ($summaries->isEmpty()) {
             return response()->json([
@@ -128,7 +177,6 @@ class PayrollRunController extends Controller
         }
 
         DB::transaction(function () use ($payrollRun, $summaries, $workingDaysPerPeriod, $lateGraceMinutes, $sssRate, $philhealthRate, $pagibigRate, $pagibigCap, $taxableThreshold, $taxRate) {
-            // Clear any previously computed payslips for this run (recompute).
             Payslip::where('payroll_run_id', $payrollRun->id)->delete();
 
             $totalSalaryTotal = 0;
@@ -153,7 +201,7 @@ class PayrollRunController extends Controller
                 $absenceDeduction = round($dailyRate * (float) $summary->unpaid_absence_days, 2);
                 $lateUndertimeAbsenceDeduction = round($lateDeduction + $absenceDeduction, 2);
 
-                $totalSalary = max(0, $basicPay+ $slCashConversion + $overtimePay - $lateUndertimeAbsenceDeduction);
+                $totalSalary = max(0, $basicPay + $slCashConversion + $overtimePay - $lateUndertimeAbsenceDeduction);
 
                 $sss = round($totalSalary * $sssRate, 2);
                 $philhealth = round($totalSalary * $philhealthRate, 2);
@@ -215,9 +263,6 @@ class PayrollRunController extends Controller
             ]);
         });
 
-        // AI-powered anomaly scan — runs automatically on every (re)compute,
-        // before the run reaches HR/Admin for approval. See
-        // PayrollAnomalyDetector for the rule set.
         $this->anomalyDetector->scan($payrollRun->fresh());
 
         return new PayrollRunResource(
@@ -225,13 +270,6 @@ class PayrollRunController extends Controller
         );
     }
 
-    /**
-     * Blocked while any unresolved/needs-correction critical anomaly (or
-     * any anomaly explicitly marked "needs correction", regardless of
-     * severity) remains on this run — see PayrollAnomaly::blocksApproval().
-     * HR/Admin clears the block from the anomaly panel by dismissing the
-     * flag (false positive) or fixing the data and recomputing/rescanning.
-     */
     public function approve(PayrollRun $payrollRun)
     {
         $blocking = $payrollRun->anomalies()->get()->filter(fn (PayrollAnomaly $a) => $a->blocksApproval());
@@ -248,13 +286,6 @@ class PayrollRunController extends Controller
         return new PayrollRunResource($payrollRun);
     }
 
-    /**
-     * Releasing a run is also the point payslips get emailed out
-     * automatically — no manual "Send" click needed for the normal case.
-     * Only active employees with an email on file are emailed; the
-     * per-payslip Send button in PayslipController still works for
-     * resends (e.g. a bounced address, or a correction after release).
-     */
     public function release(Request $request, PayrollRun $payrollRun)
     {
         $payrollRun->update(['status' => 'released']);
@@ -282,10 +313,6 @@ class PayrollRunController extends Controller
         ));
     }
 
-    /**
-     * Archive a run — hides it from the default list without deleting its
-     * records, so payroll history stays intact for audit purposes.
-     */
     public function archive(PayrollRun $payrollRun)
     {
         $payrollRun->update(['archived_at' => now()]);
@@ -300,11 +327,6 @@ class PayrollRunController extends Controller
         return new PayrollRunResource($payrollRun);
     }
 
-    /**
-     * Only draft runs can be deleted outright — nothing has been computed
-     * or approved yet, so there's no financial record to preserve.
-     * Anything past draft should be archived instead.
-     */
     public function destroy(PayrollRun $payrollRun)
     {
         if ($payrollRun->status !== 'draft') {

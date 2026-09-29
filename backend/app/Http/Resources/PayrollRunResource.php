@@ -15,6 +15,7 @@ class PayrollRunResource extends JsonResource
             'payPeriodEnd' => $this->pay_period_end?->toDateString(),
             'payDate' => $this->pay_date?->toDateString(),
             'cutoffLabel' => $this->cutoff_label,
+            'attendanceCutoffId' => $this->attendance_cutoff_id,
             'status' => $this->status,
             'timesheetSubmittedAt' => $this->timesheet_submitted_at?->toIso8601String(),
             'isArchived' => $this->archived_at !== null,
