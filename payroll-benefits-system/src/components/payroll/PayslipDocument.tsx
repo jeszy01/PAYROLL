@@ -12,13 +12,13 @@ interface PayslipDocumentProps {
 const COMPANY_NAME = 'Archon Nell Incorporated';
 
 /** Plain comma-formatted number, no currency symbol — matches the reference slip. */
-function n(value: number): string {
+function n(value?: number | null): string {
   return (value ?? 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 /** A line item: dash when zero, parentheses when a deduction, plain number otherwise. */
-function LineValue({ value, deduction }: { value: number; deduction?: boolean }) {
-  if (value === 0) return <span>-</span>;
+function LineValue({ value, deduction }: { value?: number | null; deduction?: boolean }) {
+  if (!value) return <span>-</span>;
   return <span>{deduction ? `(${n(value)})` : n(value)}</span>;
 }
 
@@ -61,7 +61,6 @@ function SlipBody({ payslip, run }: { payslip: Payslip; run: PayrollRun }) {
       <div className="mt-1.5 border-t border-ink-900 pt-1">
         <Row label="Basic Salary" value={payslip.basicPay} />
         <p className="pt-0.5 text-[10.5px] leading-tight">Add(Deduct):</p>
-        <Row indent label="Tax Refund" value={payslip.taxRefund} />
         <Row indent label="SL - Cash Conversion" value={payslip.slCashConversion} />
         <Row indent label="Overtime (Reg OT/Sun OT/Hol-ND OT)" value={payslip.overtimePay} />
         <Row indent label="(Absent/Undertime/Lates)" value={payslip.lateUndertimeAbsenceDeduction} deduction />
