@@ -99,12 +99,61 @@ function SummaryTable({ run }: { run: PayrollRun }) {
     );
   }
 
+  function exportCsv() {
+  if (!data || data.length === 0) return;
+
+  const escape = (v: string | number) => {
+    const s = String(v ?? '');
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+
+  const header = ['Employee', 'Days Present', 'Absences', 'Late (min)', 'Overtime (hrs)', 'Status'];
+  const lines = data.map((row) =>
+    [
+      row.employeeName,
+      row.daysPresent ?? 0,
+      row.unpaidAbsenceDays ?? 0,
+      row.lateMinutes ?? 0,
+      row.overtimeHours ?? 0,
+      row.isLocked ? 'Locked' : 'Not saved',
+    ]
+      .map(escape)
+      .join(',')
+  );
+
+  // BOM so Excel reads UTF-8 names correctly
+  const csv = '\uFEFF' + [header.map(escape).join(','), ...lines].join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `attendance-${run.cutoffLabel.replace(/\s+/g, '-')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-line bg-clay-100/30 p-4 text-sm text-ink-900">
         Manual entry (simulates Workforce Management sync). Each row is final once saved — it cannot be edited or
         deleted afterward.
       </div>
+
+              <div className="rounded-xl border border-line bg-clay-100/30 p-4 text-sm text-ink-900">
+        Manual entry (simulates Workforce Management sync). Each row is final once saved — it cannot be edited or
+        deleted afterward.
+      </div>
+
+      <div className="flex justify-end">
+        <button
+          onClick={exportCsv}
+          className="rounded-md border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink-900 hover:border-teal-500"
+        >
+          Export CSV
+        </button>
+      </div>
+
 
       <div className="overflow-x-auto rounded-xl border border-line bg-surface shadow-sm">
         <table className="w-full min-w-max text-left text-sm">
