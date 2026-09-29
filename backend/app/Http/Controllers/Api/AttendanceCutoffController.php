@@ -6,29 +6,34 @@ use App\Http\Controllers\Controller;
 use App\Models\AttendanceCutoff;
 use App\Models\AttendanceCutoffEntry;
 use App\Models\Employee;
+use App\Models\PayrollRun;
 use App\Services\AuditLogger;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use App\Models\PayrollRun;
 
 class AttendanceCutoffController extends Controller
 {
     /** All saved cutoffs, newest period first. */
-  public function index()
-{
-    $cutoffs = AttendanceCutoff::withCount('entries')
-        ->orderByDesc('period_start')
-        ->get();
+    public function index()
+    {
+        $cutoffs = AttendanceCutoff::withCount('entries')
+            ->orderByDesc('period_start')
+            ->get();
 
-    // magkaibang database, kaya hiwalay na query
-    $runIds = PayrollRun::whereIn('attendance_cutoff_id', $cutoffs->pluck('id'))
-        ->pluck('id', 'attendance_cutoff_id');
+        // Magkaibang database ang payroll at attendance, kaya hiwalay na query.
+        try {
+            $runIds = PayrollRun::whereIn('attendance_cutoff_id', $cutoffs->pluck('id')->all())
+                ->pluck('id', 'attendance_cutoff_id');
+        } catch (\Throwable $e) {
+            report($e);
+            $runIds = collect();
+        }
 
-    return response()->json(
-        $cutoffs->map(fn ($c) => $this->present($c, $runIds[$c->id] ?? null))->values()
-    );
-}
+        return response()->json(
+            $cutoffs->map(fn ($c) => $this->present($c, $runIds[$c->id] ?? null))->values()
+        );
+    }
 
     /** One cutoff with its per-employee totals. */
     public function show(AttendanceCutoff $attendanceCutoff)
@@ -41,9 +46,7 @@ class AttendanceCutoffController extends Controller
     }
 
     /**
-     * Starting rows for the Create attendance form: every active employee
-     * with full attendance for the period (weekdays only, prorated from
-     * the hire date for mid-period hires). Nothing is saved here.
+     * Starting rows for the Create attendance form. Nothing is saved here.
      */
     public function template(Request $request)
     {
@@ -78,8 +81,8 @@ class AttendanceCutoffController extends Controller
     }
 
     /**
-     * Create a cutoff and all its entries in one go. It is locked
-     * immediately: there is no update or delete endpoint.
+     * Create a cutoff and all its entries in one go. Locked immediately:
+     * there is no update or delete endpoint.
      */
     public function store(Request $request)
     {
@@ -94,8 +97,6 @@ class AttendanceCutoffController extends Controller
             'entries.*.lateMinutes' => ['required', 'integer', 'min:0', 'max:44640'],
             'entries.*.overtimeHours' => ['required', 'numeric', 'min:0', 'max:744'],
         ]);
-
-      
 
         $employees = Employee::where('employment_status', 'active')->get()->keyBy('id');
 
@@ -153,18 +154,18 @@ class AttendanceCutoffController extends Controller
         return $count;
     }
 
-  private function present(AttendanceCutoff $c, ?string $payrollRunId = null): array
-{
-    return [
-        'id' => $c->id,
-        'label' => $c->label,
-        'periodStart' => $c->period_start->toDateString(),
-        'periodEnd' => $c->period_end->toDateString(),
-        'isLocked' => $c->locked_at !== null,
-        'entryCount' => $c->entries_count ?? null,
-        'payrollRunId' => $payrollRunId,
-    ];
-}
+    private function present(AttendanceCutoff $c, ?string $payrollRunId = null): array
+    {
+        return [
+            'id' => $c->id,
+            'label' => $c->label,
+            'periodStart' => $c->period_start->toDateString(),
+            'periodEnd' => $c->period_end->toDateString(),
+            'isLocked' => $c->locked_at !== null,
+            'entryCount' => $c->entries_count ?? null,
+            'payrollRunId' => $payrollRunId,
+        ];
+    }
 
     private function presentEntry(AttendanceCutoffEntry $e): array
     {
