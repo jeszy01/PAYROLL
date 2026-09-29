@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Plus, Users, Eye, Pencil, Trash2, Download, Search, RotateCcw } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { Layout } from '../components/layout/Layout';
@@ -11,9 +11,9 @@ import { TextField, SelectField } from '../components/common/FormField';
 import { useApiResource } from '../hooks/useApiResource';
 import { useCurrentUser, isAdmin } from '../hooks/useCurrentUser';
 import { employeeService } from '../services/employee.service';
-import { attendanceService, type AttendanceDayRow } from '../services/attendance.service';
+import { attendanceService } from '../services/attendance.service';
 import { payrollService } from '../services/payroll.service';
-import type { Employee, EmploymentStatus, EmploymentType, CivilStatus, AttendanceSummaryRow, PayrollRun, Payslip } from '../types';
+import type { Employee, EmploymentStatus, EmploymentType, CivilStatus, AttendanceSummary, PayrollRun, Payslip } from '../types';
 import { formatCurrency, formatDate } from '../utils/format';
 
 const STATUS_LABEL: Record<EmploymentStatus, string> = {
@@ -398,64 +398,76 @@ function ViewEmployeeModal({ employee, onClose }: { employee: Employee; onClose:
   );
 }
 
-function localToday() {
-  return new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD, local time
-}
+type EntryField = 'daysPresent' | 'unpaidAbsenceDays' | 'lateMinutes' | 'overtimeHours';
 
-function CreateAttendanceModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const [date, setDate] = useState(localToday());
-  const [rows, setRows] = useState<AttendanceDayRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+const ENTRY_COLUMNS: { key: EntryField; label: string }[] = [
+  { key: 'daysPresent', label: 'Days present' },
+  { key: 'unpaidAbsenceDays', label: 'Absences' },
+  { key: 'lateMinutes', label: 'Late (min)' },
+  { key: 'overtimeHours', label: 'Overtime (hrs)' },
+];
+
+function CreateAttendanceModal({
+  runs,
+  initialRunId,
+  onClose,
+  onSaved,
+}: {
+  runs: PayrollRun[];
+  initialRunId: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [runId, setRunId] = useState(initialRunId);
+  const { data, loading, error, refetch } = useApiResource<AttendanceSummary[]>(
+    () => (runId ? attendanceService.getSummary(runId) : Promise.resolve([])),
+    [runId]
+  );
+  const [draft, setDraft] = useState<Record<string, Partial<Record<EntryField, number>>>>({});
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    attendanceService
-      .getDay(date)
-      .then((r) => {
-        if (!cancelled) setRows(r.rows);
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Could not load employees.');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [date]);
+  const open = (data ?? []).filter((r) => !r.isLocked);
 
-  function update(i: number, patch: Partial<AttendanceDayRow>) {
-    setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  function field(row: AttendanceSummary, key: EntryField): number {
+    return draft[row.employeeId]?.[key] ?? row[key] ?? 0;
   }
 
-  const open = rows.filter((r) => !r.isLocked);
+  function setField(employeeId: string, key: EntryField, value: number) {
+    setDraft((d) => ({ ...d, [employeeId]: { ...d[employeeId], [key]: Math.max(0, value || 0) } }));
+  }
 
   async function handleSave() {
     if (open.length === 0) return;
-    if (!confirm(`Save attendance for ${formatDate(date)}? Once saved, it cannot be edited or deleted.`)) return;
+    const run = runs.find((r) => r.id === runId);
+    if (!confirm(`Save attendance for ${run?.cutoffLabel ?? 'this cutoff'}? Once saved, it cannot be edited or deleted.`)) {
+      return;
+    }
     setSaving(true);
-    setError(null);
-    try {
-      await attendanceService.saveDay({
-        date,
-        entries: open.map((r) => ({
+    setSaveError(null);
+    const failed: string[] = [];
+    for (const r of open) {
+      try {
+        await attendanceService.saveEntry(runId, {
           employeeId: r.employeeId,
-          status: r.status,
-          minutesLate: r.status === 'absent' ? 0 : r.minutesLate,
-          overtimeMinutes: r.status === 'absent' ? 0 : r.overtimeMinutes,
-        })),
-      });
-      onSaved();
+          daysPresent: field(r, 'daysPresent'),
+          unpaidAbsenceDays: field(r, 'unpaidAbsenceDays'),
+          lateMinutes: field(r, 'lateMinutes'),
+          overtimeHours: field(r, 'overtimeHours'),
+          cashAdvance: 0,
+          slCashConversion: 0,
+        });
+      } catch (err) {
+        failed.push(`${r.employeeName}: ${err instanceof Error ? err.message : 'could not save'}`);
+      }
+    }
+    setSaving(false);
+    onSaved();
+    if (failed.length === 0) {
       onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save attendance.');
-    } finally {
-      setSaving(false);
+    } else {
+      setSaveError(failed.join(' • '));
+      refetch();
     }
   }
 
@@ -465,89 +477,83 @@ function CreateAttendanceModal({ onClose, onSaved }: { onClose: () => void; onSa
   return (
     <Modal title="Create attendance" onClose={onClose} width="lg">
       <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="text-sm text-ink-500">
-            Date
-            <input
-              type="date"
-              value={date}
-              max={localToday()}
-              onChange={(e) => e.target.value && setDate(e.target.value)}
-              className={`${cell} ml-2`}
-            />
-          </label>
-          <p className="text-xs text-ink-500">Final once saved. It cannot be edited or deleted.</p>
-        </div>
+        {runs.length === 0 ? (
+          <EmptyState
+            icon={Users}
+            title="No draft payroll runs"
+            description="Start a new payroll run from Payroll Management first."
+          />
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="text-sm text-ink-500">
+                Cutoff
+                <select
+                  value={runId}
+                  onChange={(e) => {
+                    setRunId(e.target.value);
+                    setDraft({});
+                  }}
+                  disabled={saving}
+                  className={`${cell} ml-2`}
+                >
+                  {runs.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.cutoffLabel}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="text-xs text-ink-500">Final once saved. It cannot be edited or deleted.</p>
+            </div>
 
-        {loading && <LoadingState label="Loading employees…" />}
-        {!loading && rows.length === 0 && !error && (
-          <EmptyState icon={Users} title="No active employees" description="Add active employees first." />
-        )}
-        {!loading && rows.length > 0 && (
-          <div className="max-h-[50vh] overflow-y-auto rounded-xl border border-line">
-            <table className="w-full text-left text-sm">
-              <thead className="sticky top-0 bg-sand-50">
-                <tr className="text-xs uppercase tracking-wide text-ink-500">
-                  <th className="px-3 py-2">Employee</th>
-                  <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2">Late (min)</th>
-                  <th className="px-3 py-2">OT (min)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => {
-                  const off = r.isLocked || r.status === 'absent';
-                  return (
-                    <tr key={r.employeeId} className="border-t border-line">
-                      <td className="px-3 py-2 font-medium text-ink-900">
-                        {r.employeeName}
-                        {r.isLocked && <span className="ml-2 text-xs font-normal text-ink-500">Saved</span>}
-                      </td>
-                      <td className="px-3 py-2">
-                        <select
-                          value={r.status}
-                          disabled={r.isLocked || saving}
-                          onChange={(e) =>
-                            update(i, {
-                              status: e.target.value as 'present' | 'absent',
-                              ...(e.target.value === 'absent' ? { minutesLate: 0, overtimeMinutes: 0 } : {}),
-                            })
-                          }
-                          className={cell}
-                        >
-                          <option value="present">Present</option>
-                          <option value="absent">Absent</option>
-                        </select>
-                      </td>
-                      <td className="px-3 py-2">
-                        <input
-                          type="number"
-                          min={0}
-                          value={r.minutesLate}
-                          disabled={off || saving}
-                          onChange={(e) => update(i, { minutesLate: Math.max(0, Number(e.target.value) || 0) })}
-                          className={`${cell} w-20`}
-                        />
-                      </td>
-                      <td className="px-3 py-2">
-                        <input
-                          type="number"
-                          min={0}
-                          value={r.overtimeMinutes}
-                          disabled={off || saving}
-                          onChange={(e) => update(i, { overtimeMinutes: Math.max(0, Number(e.target.value) || 0) })}
-                          className={`${cell} w-20`}
-                        />
-                      </td>
+            {loading && <LoadingState label="Loading employees…" />}
+            {!loading && error && <ErrorState message={error} onRetry={refetch} />}
+            {!loading && !error && data && data.length === 0 && (
+              <EmptyState icon={Users} title="No active employees" description="Add active employees first." />
+            )}
+            {!loading && !error && data && data.length > 0 && (
+              <div className="max-h-[50vh] overflow-y-auto rounded-xl border border-line">
+                <table className="w-full text-left text-sm">
+                  <thead className="sticky top-0 bg-sand-50">
+                    <tr className="text-xs uppercase tracking-wide text-ink-500">
+                      <th className="px-3 py-2">Employee</th>
+                      {ENTRY_COLUMNS.map((c) => (
+                        <th key={c.key} className="px-3 py-2 text-center">
+                          {c.label}
+                        </th>
+                      ))}
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody>
+                    {data.map((r) => (
+                      <tr key={r.employeeId} className="border-t border-line">
+                        <td className="px-3 py-2 font-medium text-ink-900">
+                          {r.employeeName}
+                          {r.isLocked && <span className="ml-2 text-xs font-normal text-ink-500">Saved</span>}
+                        </td>
+                        {ENTRY_COLUMNS.map((c) => (
+                          <td key={c.key} className="px-2 py-2 text-center">
+                            <input
+                              type="number"
+                              min={0}
+                              value={field(r, c.key)}
+                              disabled={r.isLocked || saving}
+                              onChange={(e) => setField(r.employeeId, c.key, Number(e.target.value))}
+                              className={`${cell} w-20 text-center`}
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
         )}
 
-        {error && <p className="text-sm text-bad-600">{error}</p>}
+        {saveError && <p className="text-sm text-bad-600">{saveError}</p>}
         <div className="flex justify-end gap-3 pt-2">
           <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-semibold text-ink-500 hover:bg-sand-100">
             Cancel
@@ -558,7 +564,7 @@ function CreateAttendanceModal({ onClose, onSaved }: { onClose: () => void; onSa
             disabled={saving || loading || open.length === 0}
             className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:opacity-50"
           >
-            {saving ? 'Saving…' : open.length === 0 && rows.length > 0 ? 'Already saved' : 'Save & lock'}
+            {saving ? 'Saving…' : open.length === 0 && (data?.length ?? 0) > 0 ? 'Already saved' : 'Save & lock'}
           </button>
         </div>
       </div>
@@ -567,47 +573,47 @@ function CreateAttendanceModal({ onClose, onSaved }: { onClose: () => void; onSa
 }
 
 function AttendanceTab() {
-  const today = localToday();
-  const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toLocaleDateString('en-CA');
-  const [start, setStart] = useState(firstOfMonth);
-  const [end, setEnd] = useState(today);
+  const { data: runs, loading: runsLoading } = useApiResource<PayrollRun[]>(() => payrollService.listRuns(), []);
+  const [runId, setRunId] = useState('');
   const [showCreate, setShowCreate] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const { data, loading, error, refetch } = useApiResource<AttendanceSummaryRow[]>(
-       () => attendanceService.getPeriodSummary(start, end),
-    [start, end]
+
+  const visibleRuns = (runs ?? []).filter((r) => !r.isArchived);
+  const draftRuns = visibleRuns.filter((r) => r.status === 'draft');
+  const selectedRunId = runId || visibleRuns[0]?.id || '';
+  const selectedRun = visibleRuns.find((r) => r.id === selectedRunId);
+
+  const { data, loading, error, refetch } = useApiResource<AttendanceSummary[]>(
+    () => (selectedRunId ? attendanceService.getSummary(selectedRunId) : Promise.resolve([])),
+    [selectedRunId]
   );
 
-  async function handleExport() {
-    setExporting(true);
-    try {
-      const records = await attendanceService.getRecords(start, end);
-      const header = ['Date', 'Employee #', 'Employee', 'Status', 'Late (min)', 'Overtime (min)'];
-      const lines = records.map((r) =>
-        [r.date, r.employeeNumber, r.employeeName, r.status === 'absent' ? 'Absent' : 'Present', r.minutesLate, r.overtimeMinutes]
-          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
-          .join(',')
-      );
-      const blob = new Blob([[header.join(','), ...lines].join('\n')], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `attendance-${start}-to-${end}.csv`;
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Could not export attendance.');
-    } finally {
-      setExporting(false);
-    }
+  const saved = (data ?? []).filter((r) => r.isLocked);
+
+  function exportCsv() {
+    if (saved.length === 0) return;
+    const esc = (v: string | number) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const header = ['Employee', 'Days Present', 'Absences', 'Late (min)', 'Overtime (hrs)'];
+    const lines = saved.map((r) =>
+      [r.employeeName, r.daysPresent ?? 0, r.unpaidAbsenceDays ?? 0, r.lateMinutes ?? 0, r.overtimeHours ?? 0]
+        .map(esc)
+        .join(',')
+    );
+    const csv = '\uFEFF' + [header.map(esc).join(','), ...lines].join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `attendance-${(selectedRun?.cutoffLabel ?? 'cutoff').replace(/\s+/g, '-')}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
-  const columns: Column<AttendanceSummaryRow>[] = [
+  const columns: Column<AttendanceSummary>[] = [
     { header: 'Employee', render: (r) => <span className="font-medium">{r.employeeName}</span> },
-    { header: 'Days present', render: (r) => r.daysPresent, align: 'right' },
-    { header: 'Absences', render: (r) => r.daysAbsent, align: 'right' },
-    { header: 'Late (min)', render: (r) => r.totalMinutesLate, align: 'right' },
-    { header: 'Overtime (min)', render: (r) => r.totalOvertimeMinutes, align: 'right' },
+    { header: 'Days present', render: (r) => r.daysPresent ?? 0, align: 'right' },
+    { header: 'Absences', render: (r) => r.unpaidAbsenceDays ?? 0, align: 'right' },
+    { header: 'Late (min)', render: (r) => r.lateMinutes ?? 0, align: 'right' },
+    { header: 'Overtime (hrs)', render: (r) => r.overtimeHours ?? 0, align: 'right' },
   ];
 
   return (
@@ -615,51 +621,58 @@ function AttendanceTab() {
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-ink-900">Attendance &amp; OT</h3>
-          <p className="text-xs text-ink-500">Totals for the selected period. Saved attendance is final.</p>
+          <p className="text-xs text-ink-500">Totals per cutoff. Saved attendance is final.</p>
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={handleExport}
-            disabled={exporting}
+            onClick={exportCsv}
+            disabled={saved.length === 0}
             className="flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-ink-900 transition hover:bg-sand-100 disabled:opacity-50"
           >
-            <Download size={16} /> {exporting ? 'Exporting…' : 'Export CSV'}
+            <Download size={16} /> Export CSV
           </button>
           <button
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-700"
+            disabled={draftRuns.length === 0}
+            className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:opacity-50"
           >
             <Plus size={16} /> Create attendance
           </button>
         </div>
       </div>
 
-      <div className="mb-4 flex items-center gap-3">
-        <input
-          type="date"
-          value={start}
-          onChange={(e) => setStart(e.target.value)}
+      <div className="mb-4">
+        <select
+          value={selectedRunId}
+          onChange={(e) => setRunId(e.target.value)}
           className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink-900 outline-none focus:border-teal-500"
-        />
-        <span className="text-sm text-ink-500">to</span>
-        <input
-          type="date"
-          value={end}
-          onChange={(e) => setEnd(e.target.value)}
-          className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink-900 outline-none focus:border-teal-500"
-        />
+        >
+          {runsLoading && <option>Loading cutoffs…</option>}
+          {visibleRuns.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.cutoffLabel}
+            </option>
+          ))}
+        </select>
       </div>
 
       {loading && <LoadingState label="Loading attendance…" />}
       {!loading && error && <ErrorState message={error} onRetry={refetch} />}
-      {!loading && !error && data && data.length === 0 && (
-        <EmptyState icon={Users} title="No records" description="No attendance records for this period." />
+      {!loading && !error && saved.length === 0 && (
+        <EmptyState icon={Users} title="No records" description="No saved attendance for this cutoff yet." />
       )}
-      {!loading && !error && data && data.length > 0 && (
-        <DataTable columns={columns} rows={data} rowKey={(r) => r.employeeId} />
+      {!loading && !error && saved.length > 0 && (
+        <DataTable columns={columns} rows={saved} rowKey={(r) => r.employeeId} />
       )}
 
-      {showCreate && <CreateAttendanceModal onClose={() => setShowCreate(false)} onSaved={refetch} />}
+      {showCreate && (
+        <CreateAttendanceModal
+          runs={draftRuns}
+          initialRunId={draftRuns.find((r) => r.id === selectedRunId)?.id ?? draftRuns[0]?.id ?? ''}
+          onClose={() => setShowCreate(false)}
+          onSaved={refetch}
+        />
+      )}
     </div>
   );
 }
