@@ -153,7 +153,7 @@ class AttendanceCutoffController extends Controller
         return $count;
     }
 
-   private function present(AttendanceCutoff $c, ?string $payrollRunId = null): array
+  private function present(AttendanceCutoff $c, ?string $payrollRunId = null): array
 {
     return [
         'id' => $c->id,
