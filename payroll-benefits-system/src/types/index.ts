@@ -118,6 +118,19 @@ export interface PayrollAnomaly {
   createdAt: string;
 }
 
+export interface PayrollReviewRow {
+  employeeId: string;
+  employeeName: string;
+  daysPresent: number;
+  lateMinutes: number;
+  overtimeHours: number;
+  unpaidAbsenceDays: number;
+  cashAdvance: number;
+  otherDeductions: number;
+  approvedClaims: number;
+  slCashConversion: number;
+}
+
 export interface Payslip {
   id: ID;
   payrollRunId: ID;

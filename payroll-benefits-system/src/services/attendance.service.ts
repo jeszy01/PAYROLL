@@ -28,6 +28,7 @@ export interface AttendanceCutoff {
   periodEnd: string;
   isLocked: boolean;
   entryCount: number | null;
+  payrollRunId?: string | null;
 }
 
 export interface AttendanceCutoffEntry {

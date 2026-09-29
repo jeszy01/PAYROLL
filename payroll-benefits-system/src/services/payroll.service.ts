@@ -1,12 +1,15 @@
 import { apiClient } from './apiClient';
-import type { PayrollRun, Payslip } from '../types';
+import type { PayrollRun, Payslip, PayrollReviewRow } from '../types';
 
 export const payrollService = {
   listRuns: (includeArchived = false) =>
     apiClient.get<PayrollRun[]>(`/payroll/runs${includeArchived ? '?includeArchived=1' : ''}`),
   getRun: (id: string) => apiClient.get<PayrollRun>(`/payroll/runs/${id}`),
-  createRun: (payload: Pick<PayrollRun, 'payPeriodStart' | 'payPeriodEnd' | 'payDate' | 'cutoffLabel'>) =>
+
+  // BAGO: cutoff id + pay date na lang
+  createRun: (payload: { attendanceCutoffId: string; payDate: string }) =>
     apiClient.post<PayrollRun>('/payroll/runs', payload),
+
   approveRun: (id: string) => apiClient.post<PayrollRun>(`/payroll/runs/${id}/approve`),
   releaseRun: (id: string) =>
     apiClient.post<PayrollRun & { emailSummary: { emailed: number; failed: number } }>(
@@ -16,6 +19,12 @@ export const payrollService = {
   unarchiveRun: (id: string) => apiClient.post<PayrollRun>(`/payroll/runs/${id}/unarchive`),
   deleteRun: (id: string) => apiClient.delete<void>(`/payroll/runs/${id}`),
   computeRun: (payrollRunId: string) => apiClient.post<PayrollRun>(`/payroll/runs/${payrollRunId}/compute`),
+
+  // BAGO: para sa Review step
+  getReview: (runId: string) =>
+    apiClient.get<PayrollReviewRow[]>(`/payroll/runs/${runId}/review`),
+  saveReviewAdjustment: (runId: string, payload: { employeeId: string; slCashConversion: number }) =>
+    apiClient.post<PayrollReviewRow>(`/payroll/runs/${runId}/review/adjustments`, payload),
 
   listPayslips: (payrollRunId: string) =>
     apiClient.get<Payslip[]>(`/payroll/runs/${payrollRunId}/payslips`),

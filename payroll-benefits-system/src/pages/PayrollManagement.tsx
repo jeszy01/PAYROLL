@@ -12,9 +12,8 @@ import { AnomalyPanel } from '../components/payroll/AnomalyPanel';
 import { useApiResource } from '../hooks/useApiResource';
 import { useCurrentUser, isAdmin } from '../hooks/useCurrentUser';
 import { payrollService } from '../services/payroll.service';
-import type { PayrollRun, Payslip, AttendanceSummary } from '../types';
 import { formatCurrency, formatDate } from '../utils/format';
-import { attendanceService } from '../services/attendance.service';
+import { attendanceService, type AttendanceCutoff } from '../services/attendance.service';
 
 /** "⚠️ X anomalies detected" — shared by the run list and the run detail view. */
 function AnomalyBadge({ count, onClick }: { count: number; onClick: () => void }) {
@@ -30,17 +29,29 @@ function AnomalyBadge({ count, onClick }: { count: number; onClick: () => void }
   );
 }
 
+import type { PayrollRun, Payslip, PayrollReviewRow } from '../types';
+
 function NewRunModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const [form, setForm] = useState({ payPeriodStart: '', payPeriodEnd: '', payDate: '', cutoffLabel: '' });
+  const { data: cutoffs, loading: loadingCutoffs, error: cutoffsError } = useApiResource<AttendanceCutoff[]>(
+    () => attendanceService.listCutoffs(),
+    []
+  );
+  const [cutoffId, setCutoffId] = useState('');
+  const [payDate, setPayDate] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Locked lang, at wala pang run na gumagamit
+  const available = (cutoffs ?? []).filter((c) => c.isLocked && !c.payrollRunId);
+  const selected = available.find((c) => c.id === cutoffId);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!selected) return;
     setSubmitting(true);
     setError(null);
     try {
-      await payrollService.createRun(form);
+      await payrollService.createRun({ attendanceCutoffId: selected.id, payDate });
       onCreated();
       onClose();
     } catch (err) {
@@ -53,36 +64,48 @@ function NewRunModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
   return (
     <Modal title="Start new payroll run" onClose={onClose}>
       <form className="space-y-4" onSubmit={handleSubmit}>
-        <TextField
-          label="Cutoff label"
-          placeholder="e.g. May 1–15, 2026"
-          required
-          value={form.cutoffLabel}
-          onChange={(e) => setForm({ ...form, cutoffLabel: e.target.value })}
-        />
-        <div className="grid grid-cols-2 gap-4">
-          <TextField
-            label="Pay period start"
-            type="date"
-            required
-            value={form.payPeriodStart}
-            onChange={(e) => setForm({ ...form, payPeriodStart: e.target.value })}
-          />
-          <TextField
-            label="Pay period end"
-            type="date"
-            required
-            value={form.payPeriodEnd}
-            onChange={(e) => setForm({ ...form, payPeriodEnd: e.target.value })}
-          />
-        </div>
-        <TextField
-          label="Pay date"
-          type="date"
-          required
-          value={form.payDate}
-          onChange={(e) => setForm({ ...form, payDate: e.target.value })}
-        />
+        {loadingCutoffs && <LoadingState label="Loading attendance cutoffs…" />}
+        {cutoffsError && <p className="text-sm text-bad-600">{cutoffsError}</p>}
+
+        {!loadingCutoffs && !cutoffsError && available.length === 0 && (
+          <p className="rounded-lg border border-line bg-sand-100/40 p-3 text-sm text-ink-500">
+            Walang available na locked attendance cutoff. Gumawa at i-lock muna sa Employees → Attendance.
+          </p>
+        )}
+
+        {available.length > 0 && (
+          <>
+            <label className="block text-sm font-medium text-ink-900">
+              Attendance cutoff
+              <select
+                required
+                value={cutoffId}
+                onChange={(e) => setCutoffId(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-teal-500"
+              >
+                <option value="">Select a cutoff…</option>
+                {available.map((c) => (
+                  <option key={c.id} value={c.id}>{c.label}</option>
+                ))}
+              </select>
+            </label>
+
+            {selected && (
+              <p className="text-sm text-ink-500">
+                Period: {formatDate(selected.periodStart)} – {formatDate(selected.periodEnd)}
+              </p>
+            )}
+
+            <TextField
+              label="Pay date"
+              type="date"
+              required
+              value={payDate}
+              onChange={(e) => setPayDate(e.target.value)}
+            />
+          </>
+        )}
+
         {error && <p className="text-sm text-bad-600">{error}</p>}
         <div className="flex justify-end gap-3 pt-2">
           <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-semibold text-ink-500 hover:bg-sand-100">
@@ -90,7 +113,7 @@ function NewRunModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
           </button>
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || !selected}
             className="rounded-lg bg-navy-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-navy-800 disabled:opacity-50"
           >
             {submitting ? 'Creating…' : 'Create run'}
@@ -102,47 +125,35 @@ function NewRunModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
 }
 
 
-function AttendanceAdjustmentsPanel({ run, onComputed }: { run: PayrollRun; onComputed: () => void }) {
-  const { data, loading, error, refetch } = useApiResource<AttendanceSummary[]>(
-  () => attendanceService.getSummary(run.id),
-  [run.id]
-);
-  const [rows, setRows] = useState<Record<string, AttendanceSummary>>({});
+function ReviewPanel({ run, onComputed }: { run: PayrollRun; onComputed: () => void }) {
+  const { data, loading, error, refetch } = useApiResource<PayrollReviewRow[]>(
+    () => payrollService.getReview(run.id),
+    [run.id]
+  );
+  const [slEdits, setSlEdits] = useState<Record<string, number>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [computing, setComputing] = useState(false);
   const [computeError, setComputeError] = useState<string | null>(null);
 
-  const list = data ? data.map((r) => rows[r.employeeId] ?? r) : [];
+  const list = data ?? [];
 
-  function updateField(row: AttendanceSummary, field: keyof AttendanceSummary, value: number) {
-    if (row.isLocked) return;
-    setRows((prev) => ({ ...prev, [row.employeeId]: { ...row, ...prev[row.employeeId], [field]: value } }));
-  }
-
-  async function saveRow(row: AttendanceSummary) {
-    if (row.isLocked) return;
+  async function saveSl(row: PayrollReviewRow) {
+    const value = slEdits[row.employeeId];
+    if (value === undefined || value === row.slCashConversion) return;
     setSavingId(row.employeeId);
     try {
-      await attendanceService.saveEntry(run.id, {
-  employeeId: row.employeeId,
-  daysPresent: row.daysPresent,
-  lateMinutes: row.lateMinutes,
-  overtimeHours: row.overtimeHours,
-  unpaidAbsenceDays: row.unpaidAbsenceDays,
-  cashAdvance: row.cashAdvance,
-  slCashConversion: row.slCashConversion,
-});
+      await payrollService.saveReviewAdjustment(run.id, { employeeId: row.employeeId, slCashConversion: value });
       refetch();
     } finally {
       setSavingId(null);
     }
   }
 
-  async function handleCompute() {
+  async function handleConfirm() {
+    if (!confirm('Generate payslips? Hindi na maiba ang attendance, deductions, at claims pagkatapos nito.')) return;
     setComputing(true);
     setComputeError(null);
     try {
-      await Promise.all(list.map((row) => saveRow(row)));
       await payrollService.computeRun(run.id);
       onComputed();
     } catch (err) {
@@ -152,61 +163,54 @@ function AttendanceAdjustmentsPanel({ run, onComputed }: { run: PayrollRun; onCo
     }
   }
 
-  function numberField(r: AttendanceSummary, field: keyof AttendanceSummary, opts: { min?: number; max?: number; step?: number; width?: string } = {}) {
-    return (
-      <input
-        type="number"
-        min={opts.min ?? 0}
-        max={opts.max}
-        step={opts.step ?? 1}
-        value={r[field] as number}
-        disabled={r.isLocked}
-        onChange={(e) => updateField(r, field, Number(e.target.value))}
-        onBlur={() => saveRow(rows[r.employeeId] ?? r)}
-        className={`${opts.width ?? 'w-20'} rounded-lg border border-line px-2 py-1 text-right text-sm outline-none focus:border-teal-500 disabled:cursor-not-allowed disabled:bg-sand-50 disabled:text-ink-300`}
-      />
-    );
-  }
+  const num = (v: number) => <span className="tabular-nums">{v}</span>;
 
- const columns: Column<AttendanceSummary>[] = [
-  {
-    header: 'Employee',
-    render: (r) => (
-      <div className="flex items-center gap-2">
-        <span className="font-medium">{r.employeeName}</span>
-        {r.isLocked && (
-          <span className="rounded-full bg-sand-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-500">
-            Locked
-          </span>
-        )}
-      </div>
-    ),
-  },
-  { header: 'Cash advance', render: (r) => numberField(r, 'cashAdvance', { step: 0.01, width: 'w-24' }), align: 'right' },
-  { header: 'SL - Cash conversion', render: (r) => numberField(r, 'slCashConversion', { step: 0.01, width: 'w-24' }), align: 'right' },
-  {
-    header: '',
-    render: (r) => (savingId === r.employeeId ? <span className="text-xs text-ink-300">Saving…</span> : null),
-  },
-];
+  const columns: Column<PayrollReviewRow>[] = [
+    { header: 'Employee', render: (r) => <span className="font-medium">{r.employeeName}</span> },
+    { header: 'Days present', render: (r) => num(r.daysPresent), align: 'right' },
+    { header: 'Late (min)', render: (r) => num(r.lateMinutes), align: 'right' },
+    { header: 'OT (hrs)', render: (r) => num(r.overtimeHours), align: 'right' },
+    { header: 'Unpaid absence', render: (r) => num(r.unpaidAbsenceDays), align: 'right' },
+    { header: 'Cash advance', render: (r) => formatCurrency(r.cashAdvance), align: 'right' },
+    { header: 'Other deductions', render: (r) => formatCurrency(r.otherDeductions), align: 'right' },
+    { header: 'Approved claims', render: (r) => formatCurrency(r.approvedClaims), align: 'right' },
+    {
+      header: 'SL cash conversion',
+      align: 'right',
+      render: (r) => (
+        <div className="flex items-center justify-end gap-2">
+          {savingId === r.employeeId && <span className="text-xs text-ink-300">Saving…</span>}
+          <input
+            type="number"
+            min={0}
+            step={0.01}
+            value={slEdits[r.employeeId] ?? r.slCashConversion}
+            onChange={(e) => setSlEdits((p) => ({ ...p, [r.employeeId]: Number(e.target.value) }))}
+            onBlur={() => saveSl(r)}
+            className="w-24 rounded-lg border border-line px-2 py-1 text-right text-sm outline-none focus:border-teal-500"
+          />
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-line bg-sand-100/40 p-4 text-sm text-ink-900">
-        <p className="font-semibold">Cutoff adjustments</p>
+        <p className="font-semibold">Review bago mag-generate</p>
         <p className="mt-1 text-ink-500">
-           One-off amounts for this cutoff — cash advance, tax refund, SL-cash conversion. Days present, late, and
-          overtime come from the recorded attendance.
+          Attendance galing sa locked cutoff, cash advance at deductions galing sa Deductions tab, claims galing sa
+          approved claims. Ang SL cash conversion lang ang puwedeng i-edit dito.
         </p>
       </div>
 
-      {loading && <LoadingState label="Loading employees…" />}
+      {loading && <LoadingState label="Loading review…" />}
       {!loading && error && <ErrorState message={error} onRetry={refetch} />}
       {!loading && !error && list.length === 0 && (
         <EmptyState
           icon={ClipboardList}
-          title="No active employees"
-          description="Add active employees in the Employees module before computing this payroll run."
+          title="Walang employee sa cutoff na ito"
+          description="Walang entries ang attendance cutoff ng run na ito."
         />
       )}
       {!loading && !error && list.length > 0 && (
@@ -215,12 +219,12 @@ function AttendanceAdjustmentsPanel({ run, onComputed }: { run: PayrollRun; onCo
           {computeError && <p className="text-sm text-bad-600">{computeError}</p>}
           <div className="flex justify-end">
             <button
-              onClick={handleCompute}
+              onClick={handleConfirm}
               disabled={computing}
               className="flex items-center gap-2 rounded-lg bg-navy-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-navy-800 disabled:opacity-50"
             >
               <Calculator size={16} />
-              {computing ? 'Computing…' : 'Compute payroll'}
+              {computing ? 'Generating…' : 'Confirm & generate payslips'}
             </button>
           </div>
         </>
@@ -671,7 +675,7 @@ export function PayrollManagement() {
           </div>
 
           {selectedRun.status === 'draft' ? (
-            <AttendanceAdjustmentsPanel run={selectedRun} onComputed={refetch} />
+            <ReviewPanel run={selectedRun} onComputed={refetch} />
           ) : (
             <PayslipsPanel run={selectedRun} onRunUpdated={refetch} />
           )}
