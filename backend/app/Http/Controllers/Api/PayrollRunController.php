@@ -14,6 +14,7 @@ use App\Services\PayslipMailer;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\AttendanceCutoff;
 
 class PayrollRunController extends Controller
 {
@@ -76,7 +77,7 @@ class PayrollRunController extends Controller
         );
     }
 
-    public function compute(PayrollRun $payrollRun)
+    public function compute(Request $request, PayrollRun $payrollRun)
     {
         if ($payrollRun->status !== 'draft') {
             return response()->json([
@@ -102,7 +103,23 @@ class PayrollRunController extends Controller
         // 10-25), so this can't be a hardcoded constant.
         $workingDaysPerPeriod = $payrollRun->workingDays();
 
-        $summaries = $this->attendanceCalculator->forPayrollRun($payrollRun)->values();
+               $data = $request->validate([
+            'attendanceCutoffId' => ['nullable', 'uuid'],
+        ]);
+
+        if (! empty($data['attendanceCutoffId'])) {
+            $cutoff = AttendanceCutoff::find($data['attendanceCutoffId']);
+
+            if (! $cutoff) {
+                return response()->json([
+                    'message' => 'The selected attendance cutoff could not be found.',
+                ], 422);
+            }
+
+            $summaries = $this->attendanceCalculator->forCutoff($cutoff)->values();
+        } else {
+            $summaries = $this->attendanceCalculator->forPayrollRun($payrollRun)->values();
+        }
 
         if ($summaries->isEmpty()) {
             return response()->json([

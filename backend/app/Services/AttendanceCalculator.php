@@ -7,6 +7,8 @@ use App\Models\AttendanceSummary;
 use App\Models\Employee;
 use App\Models\PayrollRun;
 use Illuminate\Support\Collection;
+use App\Models\AttendanceCutoff;
+use App\Models\AttendanceCutoffEntry;
 
 /**
  * Derives attendance data for payroll from saved AttendanceRecord rows
@@ -50,6 +52,33 @@ class AttendanceCalculator
                 $fullAttendanceDays,
                 $recordsByEmployee->get($employee->id)
             ));
+    }
+
+        /**
+     * One (unsaved) AttendanceSummary per employee in a saved attendance
+     * cutoff, keyed by employee_id. Only employees who are still active
+     * are included.
+     *
+     * @return Collection<string, AttendanceSummary>
+     */
+    public function forCutoff(AttendanceCutoff $cutoff): Collection
+    {
+        $activeIds = Employee::where('employment_status', 'active')->pluck('id')->all();
+
+        return $cutoff->entries()
+            ->get()
+            ->filter(fn (AttendanceCutoffEntry $e) => in_array($e->employee_id, $activeIds, true))
+            ->keyBy('employee_id')
+            ->map(fn (AttendanceCutoffEntry $e) => new AttendanceSummary([
+                'employee_id' => $e->employee_id,
+                'employee_name' => $e->employee_name,
+                'days_present' => $e->days_present,
+                'late_minutes' => $e->late_minutes,
+                'overtime_hours' => $e->overtime_hours,
+                'unpaid_absence_days' => $e->unpaid_absence_days,
+                'cash_advance' => 0,
+                'sl_cash_conversion' => 0,
+            ]));
     }
 
     private function forEmployee(PayrollRun $payrollRun, Employee $employee, int $fullAttendanceDays, ?Collection $records): AttendanceSummary
